@@ -24,6 +24,11 @@ pub struct TranslationUnit<'a> {
     /// These are referred to by `Handle<ast::Type<'a>>` values.
     /// User-defined types are referred to by name until lowering.
     pub types: Arena<Type<'a>>,
+
+    /// Wglsx extension, user-defined imports
+    ///
+    /// @import "./path/to/source"
+    pub imports: Vec<&'a str>
 }
 
 #[derive(Debug, Clone, Copy)]
