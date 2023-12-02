@@ -13,6 +13,7 @@ pub enum Token<'a> {
     Attribute,
     Number(Result<Number, NumberError>),
     Word(&'a str),
+    String(&'a str),
     Operation(char),
     LogicalOperation(char),
     ShiftOperation(char),
@@ -162,6 +163,11 @@ fn consume_token(input: &str, generic: bool) -> (Token<'_>, &str) {
             let (word, rest) = consume_any(input, is_word_part);
             (Token::Word(word), rest)
         }
+        _ if is_string_start(cur) => {
+            eprintln!("Got string start"); 
+            let (string, rest) = consume_any(input, is_string_part);
+            (Token::String(string), rest)
+        }
         _ => (Token::Unknown(cur), chars.as_str()),
     }
 }
@@ -194,9 +200,17 @@ fn is_word_start(c: char) -> bool {
     c == '_' || unicode_xid::UnicodeXID::is_xid_start(c)
 }
 
+fn is_string_start(c: char) -> bool {
+    c == '"' || unicode_xid::UnicodeXID::is_xid_start(c)
+}
+
 /// Returns whether or not a char is a word part (Unicode XID_Continue)
 fn is_word_part(c: char) -> bool {
     unicode_xid::UnicodeXID::is_xid_continue(c)
+}
+
+fn is_string_part(c: char) -> bool {
+    c == '"' || c == '/' || c == '.' || unicode_xid::UnicodeXID::is_xid_continue(c)
 }
 
 #[derive(Clone)]
@@ -356,6 +370,19 @@ impl<'a> Lexer<'a> {
                 Err(Error::ReservedIdentifierPrefix(span))
             }
             (Token::Word(word), span) => Ok((word, span)),
+            other => Err(Error::Unexpected(other.1, ExpectedToken::Identifier)),
+        }
+    }
+
+    pub(in crate::front::wgsl) fn next_string_with_span(
+        &mut self,
+    ) -> Result<(&'a str, Span), Error<'a>> {
+        match self.next() {
+            // (Token::Word("_"), span) => Err(Error::InvalidIdentifierUnderscore(span)),
+            // (Token::Word(word), span) if word.starts_with("__") => {
+            //     Err(Error::ReservedIdentifierPrefix(span))
+            // }
+            (Token::String(word), span) => Ok((word, span)),
             other => Err(Error::Unexpected(other.1, ExpectedToken::Identifier)),
         }
     }

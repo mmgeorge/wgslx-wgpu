@@ -139,6 +139,7 @@ struct BindingParser<'a> {
     interpolation: ParsedAttribute<crate::Interpolation>,
     sampling: ParsedAttribute<crate::Sampling>,
     invariant: ParsedAttribute<bool>,
+    imports: ParsedAttribute<String>,
 }
 
 impl<'a> BindingParser<'a> {
@@ -2168,6 +2169,8 @@ impl Parser {
         let mut compute_span = Span::new(0, 0);
         let mut workgroup_size = ParsedAttribute::default();
         let mut early_depth_test = ParsedAttribute::default();
+        let mut imports = ParsedAttribute::default();
+
         let (mut bind_index, mut bind_group) =
             (ParsedAttribute::default(), ParsedAttribute::default());
 
@@ -2231,6 +2234,11 @@ impl Parser {
                         None
                     };
                     early_depth_test.set(crate::EarlyDepthTest { conservative }, name_span)?;
+                }
+                ("import", _name_span) => {
+                    let (string, string_span) = lexer.next_string_with_span()?;
+
+                    imports.set(string, string_span)?;
                 }
                 (_, word_span) => return Err(Error::UnknownAttribute(word_span)),
             }
