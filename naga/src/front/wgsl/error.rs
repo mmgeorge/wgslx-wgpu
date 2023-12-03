@@ -148,6 +148,7 @@ pub enum Error<'a> {
     UnexpectedComponents(Span),
     UnexpectedOperationInConstContext(Span),
     BadNumber(Span, NumberError),
+    BadPath { span: Span },
     BadMatrixScalarKind(Span, Scalar),
     BadAccessor(Span),
     BadTexture(Span),
@@ -318,6 +319,11 @@ impl<'a> Error<'a> {
                 message: format!("{}: `{}`", err, &source[bad_span],),
                 labels: vec![(bad_span, err.to_string().into())],
                 notes: vec![],
+            },
+            Error::BadPath { span } => ParseError {
+                message: "encountered bad path".to_string(),
+                labels: vec![(span, "bad path".into())],
+                notes: vec![]
             },
             Error::BadMatrixScalarKind(span, scalar) => ParseError {
                 message: format!(

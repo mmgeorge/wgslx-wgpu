@@ -2235,9 +2235,9 @@ impl Parser {
                     early_depth_test.set(crate::EarlyDepthTest { conservative }, name_span)?;
                 }
                 ("import", _name_span) => {
-                    let (string, _string_span) = lexer.next_string_with_span()?;
+                    let (string, string_span) = lexer.next_string_with_span()?;
 
-                    out.imports.push(string); 
+                    out.imports.push(ast::Import::new(string, string_span)); 
                 }
                 (_, word_span) => return Err(Error::UnknownAttribute(word_span)),
             }

@@ -3,6 +3,16 @@ use crate::front::wgsl::Scalar;
 use crate::{Arena, FastIndexSet, Handle, Span};
 use std::hash::Hash;
 
+#[derive(Debug)]
+pub struct Import<'a> {
+    pub path: &'a str,
+    pub span: Span
+}
+
+impl<'a> Import<'a> {
+    pub fn new(path: &'a str, span: Span) -> Self { Self { path, span } }
+}
+
 #[derive(Debug, Default)]
 pub struct TranslationUnit<'a> {
     pub decls: Arena<GlobalDecl<'a>>,
@@ -28,7 +38,7 @@ pub struct TranslationUnit<'a> {
     /// Wglsx extension, user-defined imports
     ///
     /// @import "./path/to/source"
-    pub imports: Vec<&'a str>
+    pub imports: Vec<Import<'a>>
 }
 
 #[derive(Debug, Clone, Copy)]
