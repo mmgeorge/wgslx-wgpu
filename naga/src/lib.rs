@@ -287,6 +287,8 @@ pub mod proc;
 mod span;
 pub mod valid;
 
+use std::collections::HashMap;
+
 pub use crate::arena::{Arena, Handle, Range, UniqueArena};
 
 pub use crate::span::{SourceLocation, Span, SpanContext, WithSpan};
@@ -304,7 +306,7 @@ pub const BOOL_WIDTH: Bytes = 1;
 pub const ABSTRACT_WIDTH: Bytes = 8;
 
 /// Hash map that is faster but not resilient to DoS attacks.
-pub type FastHashMap<K, T> = rustc_hash::FxHashMap<K, T>;
+pub type FastHashMap<K, T> = HashMap<K, T>; //rustc_hash::FxHashMap<K, T>;
 /// Hash set that is faster but not resilient to DoS attacks.
 pub type FastHashSet<K> = rustc_hash::FxHashSet<K>;
 
@@ -2027,6 +2029,16 @@ pub struct SpecialTypes {
     pub predeclared_types: FastIndexMap<PredeclaredType, Handle<Type>>,
 }
 
+#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "deserialize", derive(Deserialize))]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
+pub enum Export {
+    Function(Handle<Function>),
+    Var(Handle<GlobalVariable>),
+    Const(Handle<Constant>),
+}
+
 /// Shader module.
 ///
 /// A module is a set of constants, global variables and functions, as well as
@@ -2063,8 +2075,10 @@ pub struct Module {
     /// Arena for the functions defined in this module.
     ///
     /// Each function must appear in this arena strictly before all its callers.
-    /// Recursion is not supported.
+    /// Recursions is not supported.
     pub functions: Arena<Function>,
     /// Entry points.
     pub entry_points: Vec<EntryPoint>,
+    /// Module exports. 
+    pub exports: HashMap<String, Export>,
 }

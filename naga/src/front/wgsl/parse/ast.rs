@@ -2,15 +2,36 @@ use crate::front::wgsl::parse::number::Number;
 use crate::front::wgsl::Scalar;
 use crate::{Arena, FastIndexSet, Handle, Span};
 use std::hash::Hash;
+use std::path::{PathBuf, Path};
 
 #[derive(Debug)]
-pub struct Import<'a> {
-    pub path: &'a str,
-    pub span: Span
+pub struct Import {
+    pub path: String,
+    pub span: Span, 
+    pub resolved_path: Option<PathBuf>, 
 }
 
-impl<'a> Import<'a> {
-    pub fn new(path: &'a str, span: Span) -> Self { Self { path, span } }
+impl Import {
+    pub fn new(path_str: &str, span: Span) -> Self {
+        let path = path_str.to_string()
+            .chars()
+            .filter(|c| *c != '"')
+            .collect::<String>();
+        
+        Self {
+            path,
+            span,
+            resolved_path: None
+        }
+    }
+
+    pub fn resolve(&mut self, base_path: &Path) -> PathBuf {
+        let resolved_path = base_path.join(&self.path);
+
+        self.resolved_path = Some(resolved_path.clone());
+
+        resolved_path
+    }
 }
 
 #[derive(Debug, Default)]
@@ -38,7 +59,9 @@ pub struct TranslationUnit<'a> {
     /// Wglsx extension, user-defined imports
     ///
     /// @import "./path/to/source"
-    pub imports: Vec<Import<'a>>
+    pub imports: Vec<Import>,
+
+    pub path: Option<PathBuf>
 }
 
 #[derive(Debug, Clone, Copy)]

@@ -12,7 +12,7 @@ mod parse;
 mod tests;
 mod to_wgsl;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use crate::front::wgsl::error::Error;
@@ -23,7 +23,7 @@ pub use crate::front::wgsl::error::ParseError;
 use crate::front::wgsl::lower::Lowerer;
 use crate::{Scalar, Span};
 
-use self::parse::ast;
+use self::parse::ast::{self};
 
 
 pub struct TranslatedFile<'a> {
@@ -57,46 +57,75 @@ impl Frontend {
     fn inner<'a>(&mut self, source: &'a str) -> Result<crate::Module, Error<'a>> {
         let translation_unit = self.parser.parse(source)?;
 
-        let index = index::Index::generate(&translation_unit)?;
-        let module = Lowerer::new(&index).lower(&translation_unit)?;
-
-        Ok(module)
+        lower(&translation_unit, &HashMap::new())
     }
+}
+
+fn lower<'a>(
+    unit: &ast::TranslationUnit<'a>, 
+    modules: &HashMap<PathBuf, crate::Module>,
+) -> Result<crate::Module, Error<'a>> {
+    
+    let index = index::Index::generate(unit)?;
+    let module = Lowerer::new(&index).lower(unit, modules)?;
+
+    Ok(module)
 }
 
 pub fn parse_str(source: &str) -> Result<crate::Module, ParseError> {
     Frontend::new().parse(source)
 }
 
-pub fn parse_translation_units<'a, TSourceProvider: SourceProvider>(provider: &'a TSourceProvider, path: &'a str) -> Result<HashMap<PathBuf, ast::TranslationUnit<'a>>, ParseError> {
-    let mut out = HashMap::new();
-    let mut stack = vec![(PathBuf::from(path), Span::new(0, 0))];
+pub fn parse_module(provider: &impl SourceProvider, path: &str, source: &str) -> Result<(), ParseError> {
+    let mut modules: HashMap<PathBuf, crate::Module> = HashMap::new(); 
+    let units = parse_translation_units(provider, path, source)?;
 
-    while let Some((path, path_span)) = stack.pop() {
-        let source = provider.get_source(path.as_path())
-            .ok_or(Error::BadPath { span: path_span })
-            // TODO: Fixme
-            .map_err(|x| x.as_parse_error(""))?; 
+    for unit in units.iter().rev() {
+        let module = lower(unit, &modules)
+            .map_err(|x| x.as_parse_error(source))?;
 
-        let translation_unit = Frontend::new().translation_unit(source)?;
+        modules.insert(unit.path.clone().unwrap(), module); 
+    }
 
-        for import_token in &translation_unit.imports {
-            let import = import_token.path.to_string().chars().filter(|c| *c != '"').collect::<String>(); 
-            let import_path = path
-                .parent()
-                .ok_or(Error::BadPath { span: import_token.span })
-                .map_err(|x| x.as_parse_error(source))?
-                .join(import); 
+    Ok(())
+}
 
-            if out.contains_key(import_path.as_path()) {
+// Returns translation units in depth-first order
+fn parse_translation_units<'a>(
+    provider: &'a impl SourceProvider,
+    path: &'a str,
+    source: &'a str, 
+) -> Result<Vec<ast::TranslationUnit<'a>>, ParseError> {
+    
+    let mut out = vec![];
+    let mut handled = HashSet::new(); 
+    let mut stack = vec![(PathBuf::from(path), source, Span::new(0, 0))];
+
+    while let Some((path, source, span)) = stack.pop() {
+        let mut translation_unit = Frontend::new().translation_unit(source)?;
+
+        translation_unit.path = Some(path.clone()); 
+
+        let parent_path = path.parent()
+            .ok_or(Error::BadPath { span })
+            .map_err(|x| x.as_parse_error(source))?; 
+
+        for import in &mut translation_unit.imports {
+            let path = import.resolve(parent_path); 
+
+            if handled.contains(&path) {
                 continue; 
             }
 
-            stack.push((import_path, import_token.span));
+            let source = provider.get_source(path.as_path())
+                .ok_or(Error::BadPath { span })
+                .map_err(|x| x.as_parse_error(source))?; 
+
+            stack.push((path.clone(), source, import.span));
+            handled.insert(path); 
         }
 
-        eprintln!("Adding {:?}", path); 
-        out.insert(path, translation_unit); 
+        out.push(translation_unit); 
     }
 
     Ok(out)

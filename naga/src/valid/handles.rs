@@ -37,6 +37,7 @@ impl super::Validator {
             ref types,
             ref special_types,
             ref const_expressions,
+            ref exports, 
         } = module;
 
         // NOTE: Types being first is important. All other forms of validation depend on this.
