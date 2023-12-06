@@ -2336,13 +2336,12 @@ impl Parser {
         }
     }
 
-    pub fn parse<'a>(&mut self, source: &'a str) -> Result<ast::TranslationUnit<'a>, Error<'a>> {
+    pub fn parse<'a>(&mut self, tu: &mut ast::TranslationUnit<'a>, source: &'a str) -> Result<(), Error<'a>> {
         self.reset();
 
         let mut lexer = Lexer::new(source);
-        let mut tu = ast::TranslationUnit::default();
         loop {
-            match self.global_decl(&mut lexer, &mut tu) {
+            match self.global_decl(&mut lexer, tu) {
                 Err(error) => return Err(error),
                 Ok(()) => {
                     if lexer.peek().0 == Token::End {
@@ -2352,6 +2351,6 @@ impl Parser {
             }
         }
 
-        Ok(tu)
+        Ok(())
     }
 }

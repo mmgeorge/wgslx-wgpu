@@ -51,58 +51,58 @@ impl Frontend {
     }
 
     pub fn translation_unit<'a>(&mut self, source: &'a str) -> Result<ast::TranslationUnit<'a>, ParseError> {
-        self.parser.parse(source).map_err(|x| x.as_parse_error(source))
+        let mut tu = ast::TranslationUnit::default(); 
+
+        self.parser.parse(&mut tu, source).map_err(|x| x.as_parse_error(source))?; 
+
+        Ok(tu)
+    }
+
+    pub fn parse_into<'a>(&mut self, tu: &mut ast::TranslationUnit<'a>,  source: &'a str) -> Result<(), ParseError> {
+        self.parser.parse(tu, source).map_err(|x| x.as_parse_error(source))
     }
 
     fn inner<'a>(&mut self, source: &'a str) -> Result<crate::Module, Error<'a>> {
-        let translation_unit = self.parser.parse(source)?;
+        let mut translation_unit = ast::TranslationUnit::default(); 
 
-        lower(&translation_unit, &HashMap::new())
+        self.parser.parse(&mut translation_unit, source)?;
+        
+        lower(&translation_unit)
     }
 }
 
-fn lower<'a>(
-    unit: &ast::TranslationUnit<'a>, 
-    modules: &HashMap<PathBuf, crate::Module>,
-) -> Result<crate::Module, Error<'a>> {
+fn lower<'a>(unit: &ast::TranslationUnit<'a>) -> Result<crate::Module, Error<'a>> {
     
     let index = index::Index::generate(unit)?;
-    let module = Lowerer::new(&index).lower(unit, modules)?;
 
-    Ok(module)
+    Lowerer::new(&index).lower(unit)
 }
 
 pub fn parse_str(source: &str) -> Result<crate::Module, ParseError> {
     Frontend::new().parse(source)
 }
 
-pub fn parse_module(provider: &impl SourceProvider, path: &str, source: &str) -> Result<(), ParseError> {
-    let mut modules: HashMap<PathBuf, crate::Module> = HashMap::new(); 
-    let units = parse_translation_units(provider, path, source)?;
+pub fn parse_module(provider: &impl SourceProvider, path: &str, source: &str) -> Result<crate::Module, ParseError> {
+    let unit = parse_translation_unit(provider, path, source)?;
+    let module = lower(&unit).map_err(|x| x.as_parse_error(source))?;
 
-    for unit in units.iter().rev() {
-        let module = lower(unit, &modules)
-            .map_err(|x| x.as_parse_error(source))?;
-
-        modules.insert(unit.path.clone().unwrap(), module); 
-    }
-
-    Ok(())
+    Ok(module)
 }
 
 // Returns translation units in depth-first order
-fn parse_translation_units<'a>(
+fn parse_translation_unit<'a>(
     provider: &'a impl SourceProvider,
     path: &'a str,
     source: &'a str, 
-) -> Result<Vec<ast::TranslationUnit<'a>>, ParseError> {
+) -> Result<ast::TranslationUnit<'a>, ParseError> {
     
-    let mut out = vec![];
     let mut handled = HashSet::new(); 
     let mut stack = vec![(PathBuf::from(path), source, Span::new(0, 0))];
 
+    let mut translation_unit = ast::TranslationUnit::default(); 
+
     while let Some((path, source, span)) = stack.pop() {
-        let mut translation_unit = Frontend::new().translation_unit(source)?;
+        Frontend::new().parse_into(&mut translation_unit, source)?;
 
         translation_unit.path = Some(path.clone()); 
 
@@ -124,9 +124,7 @@ fn parse_translation_units<'a>(
             stack.push((path.clone(), source, import.span));
             handled.insert(path); 
         }
-
-        out.push(translation_unit); 
     }
 
-    Ok(out)
+    Ok(translation_unit)
 }
