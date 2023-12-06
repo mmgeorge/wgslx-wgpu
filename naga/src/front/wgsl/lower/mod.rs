@@ -1,6 +1,4 @@
-use std::collections::HashMap;
 use std::num::NonZeroU32;
-use std::path::{PathBuf, Path};
 
 use crate::front::wgsl::error::{Error, ExpectedToken, InvalidAssignmentType};
 use crate::front::wgsl::index::Index;
@@ -10,7 +8,7 @@ use crate::front::Typifier;
 use crate::proc::{
     ensure_block_returns, Alignment, ConstantEvaluator, Emitter, Layouter, ResolveContext,
 };
-use crate::{Arena, FastHashMap, FastIndexMap, Handle, Span, Type};
+use crate::{Arena, FastHashMap, FastIndexMap, Handle, Span};
 
 mod construction;
 mod conversion;
@@ -72,7 +70,6 @@ macro_rules! resolve {
 pub(super) use resolve;
 
 /// State for constructing a `crate::Module`.
-#[derive(Debug)]
 pub struct GlobalContext<'source, 'temp, 'out> {
     /// The `TranslationUnit`'s expressions arena.
     ast_expressions: &'temp Arena<ast::Expression<'source>>,
@@ -88,56 +85,19 @@ pub struct GlobalContext<'source, 'temp, 'out> {
     /// The module we're constructing.
     module: &'out mut crate::Module,
 
-    /// Already constructed modules, listed by path. For resolving imports. 
-    modules: &'out HashMap<PathBuf, crate::Module>,
-
     const_typifier: &'temp mut Typifier,
 }
 
 impl<'source> GlobalContext<'source, '_, '_> {
     fn as_const(&mut self) -> ExpressionContext<'source, '_, '_> {
-        
-        // let ty_handle = Handle::new(NonZeroU32::new(1).unwrap());
-        // let ty = Type {
-        //     name: None,
-        //     inner: crate::TypeInner::Vector {
-        //         scalar: crate::Scalar {
-        //             kind: crate::ScalarKind::Sint,
-        //             width: 4
-        //         },
-        //         size: crate::VectorSize::Quad
-        //     }
-        // }; 
-        
-        // let ty_handle = self.module.types.insert(ty, Span::new(0, 0)); 
-        // let handle = self.module.global_variables.append(
-        //     crate::GlobalVariable {
-        //         name: Some("other_exported".to_string()),
-        //         space: crate::AddressSpace::Uniform,
-        //         binding: None,
-        //         ty: ty_handle,
-        //         init: None,
-        //     },
-        //     Span::new(0, 0),
-        // );
-        
-        // self.globals.insert("other_exported", LoweredGlobalDecl::Var(handle));
-
-        
-        let out = ExpressionContext {
+        ExpressionContext {
             ast_expressions: self.ast_expressions,
             globals: self.globals,
             types: self.types,
             module: self.module,
-            modules: self.modules, 
             const_typifier: self.const_typifier,
             expr_type: ExpressionContextType::Constant,
-        };
-
-
-        eprintln!("{:#?}", out.globals);
-
-        out
+        }
     }
 
     fn ensure_type_exists(
@@ -194,7 +154,6 @@ pub struct StatementContext<'source, 'temp, 'out> {
     /// Also stores the spans of the names, for use in errors.
     named_expressions: &'out mut FastIndexMap<Handle<crate::Expression>, (String, Span)>,
     module: &'out mut crate::Module,
-    modules: &'out HashMap<PathBuf, crate::Module>,
 
     /// Which `Expression`s in `self.naga_expressions` are const expressions, in
     /// the WGSL sense.
@@ -223,7 +182,6 @@ impl<'a, 'temp> StatementContext<'a, 'temp, '_> {
             ast_expressions: self.ast_expressions,
             const_typifier: self.const_typifier,
             module: self.module,
-            modules: self.modules, 
             expr_type: ExpressionContextType::Runtime(RuntimeExpressionContext {
                 local_table: self.local_table,
                 function: self.function,
@@ -241,7 +199,6 @@ impl<'a, 'temp> StatementContext<'a, 'temp, '_> {
             globals: self.globals,
             types: self.types,
             module: self.module,
-            modules: self.modules,
             const_typifier: self.const_typifier,
         }
     }
@@ -349,7 +306,6 @@ pub struct ExpressionContext<'source, 'temp, 'out> {
     ///
     /// [`Module`]: crate::Module
     module: &'out mut crate::Module,
-    modules: &'out HashMap<PathBuf, crate::Module>,
 
     /// Type judgments for [`module::const_expressions`].
     ///
@@ -369,7 +325,6 @@ impl<'source, 'temp, 'out> ExpressionContext<'source, 'temp, 'out> {
             ast_expressions: self.ast_expressions,
             const_typifier: self.const_typifier,
             module: self.module,
-            modules: self.modules, 
             expr_type: ExpressionContextType::Constant,
         }
     }
@@ -380,7 +335,6 @@ impl<'source, 'temp, 'out> ExpressionContext<'source, 'temp, 'out> {
             globals: self.globals,
             types: self.types,
             module: self.module,
-            modules: self.modules, 
             const_typifier: self.const_typifier,
         }
     }
@@ -828,7 +782,6 @@ impl Components {
 }
 
 /// An `ast::GlobalDecl` for which we have built the Naga IR equivalent.
-#[derive(Debug)]
 enum LoweredGlobalDecl {
     Function(Handle<crate::Function>),
     Var(Handle<crate::GlobalVariable>),
@@ -899,7 +852,6 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
     pub fn lower(
         &mut self,
         tu: &'temp ast::TranslationUnit<'source>,
-        modules: &HashMap<PathBuf, crate::Module>,
     ) -> Result<crate::Module, Error<'source>> {
         let mut module = crate::Module::default();
 
@@ -908,7 +860,6 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
             globals: &mut FastHashMap::default(),
             types: &tu.types,
             module: &mut module,
-            modules, 
             const_typifier: &mut Typifier::new(),
         };
 
@@ -951,8 +902,6 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
 
                     ctx.globals
                         .insert(v.name.name, LoweredGlobalDecl::Var(handle));
-
-                    ctx.module.exports.insert(v.name.name.to_string(), crate::Export::Var(handle)); 
                 }
                 ast::GlobalDeclKind::Const(ref c) => {
                     let mut ectx = ctx.as_const();
@@ -996,8 +945,6 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
 
                     ctx.globals
                         .insert(c.name.name, LoweredGlobalDecl::Const(handle));
-
-                    ctx.module.exports.insert(c.name.name.to_string(), crate::Export::Const(handle)); 
                 }
                 ast::GlobalDeclKind::Struct(ref s) => {
                     let handle = self.r#struct(s, span, &mut ctx)?;
@@ -1086,7 +1033,6 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
             named_expressions: &mut named_expressions,
             types: ctx.types,
             module: ctx.module,
-            modules: ctx.modules, 
             expression_constness: &mut crate::proc::ExpressionConstnessTracker::new(),
         };
         let mut body = self.block(&f.body, false, &mut stmt_ctx)?;
@@ -1573,43 +1519,12 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                 return Ok(rctx.local_table[&local]);
             }
             ast::Expression::Ident(ast::IdentExpr::Unresolved(name)) => {
-                eprintln!("Lower {:?} {:?}", name, ctx.modules);
-
-                let global = ctx.globals.get(name);
-
-                // If we can't find the global in the current module, try to find it
-                // by travsersing imports
-                if global.is_none() {
-                    for (_path, module) in ctx.modules.iter() {
-                        if let Some(export) = module.exports.get(name) {
-                            let expr = match *export {
-                                crate::Export::Var(handle) => {
-                                    eprintln!("Got var handle"); 
-                                    let expr = crate::Expression::GlobalVariable(handle);
-                                    match ctx.module.global_variables[handle].space {
-                                        crate::AddressSpace::Handle => Typed::Plain(expr),
-                                        _ => Typed::Reference(expr),
-                                    }
-                                }
-                                crate::Export::Const(handle) => {
-                                    Typed::Plain(crate::Expression::Constant(handle))
-                                }
-                                _ => {
-                                    return Err(Error::Unexpected(span, ExpectedToken::Variable));
-                                }
-                            };
-
-                            return expr.try_map(|handle| ctx.interrupt_emitter(handle, span));        
-                        }
-                    }
-
-                    return Err(Error::UnknownIdent(span, name)); 
-                }
-                
-                    // .ok_or(Error::UnknownIdent(span, name))?;
-                let expr = match *global.unwrap() {
+                let global = ctx
+                    .globals
+                    .get(name)
+                    .ok_or(Error::UnknownIdent(span, name))?;
+                let expr = match *global {
                     LoweredGlobalDecl::Var(handle) => {
-                        eprintln!("Got var handle"); 
                         let expr = crate::Expression::GlobalVariable(handle);
                         match ctx.module.global_variables[handle].space {
                             crate::AddressSpace::Handle => Typed::Plain(expr),
