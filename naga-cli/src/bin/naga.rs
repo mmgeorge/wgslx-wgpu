@@ -1,7 +1,7 @@
 #![allow(clippy::manual_strip)]
 #[allow(unused_imports)]
 use std::fs;
-use std::{error::Error, fmt, io::Read, path::Path, str::FromStr};
+use std::{error::Error, fmt, io::Read, path::{Path, PathBuf}, str::FromStr, collections::HashMap};
 
 /// Translate shaders to different formats.
 #[derive(argh::FromArgs, Debug, Clone)]
@@ -233,6 +233,31 @@ impl fmt::Display for CliError {
 }
 impl std::error::Error for CliError {}
 
+
+struct FileProvider {
+    sources: HashMap<PathBuf, String>
+}
+
+impl FileProvider {
+    fn new() -> Self {
+        Self { sources: HashMap::new() }
+    }
+}
+
+impl SourceProvider for FileProvider {
+    fn get_source(&self, path: &Path) -> Option<&str> {
+        let source = fs::read_to_string(path)
+            .expect("Unable to parse file at path");
+
+        println!("Got source {:?}", path); 
+
+        // self.sources.insert(path.to_owned(), source);
+
+        Some(Box::leak(Box::new(source)))
+    }
+}
+
+
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
@@ -302,6 +327,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         !params.keep_coordinate_space,
     );
 
+    let provider = FileProvider::new(); 
+
     let (mut module, input_text) = match Path::new(&input_path)
         .extension()
         .ok_or(CliError("Input filename has no extension"))?
@@ -310,9 +337,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     {
         "bin" => (bincode::deserialize(&input)?, None),
         "spv" => naga::front::spv::parse_u8_slice(&input, &params.spv_in).map(|m| (m, None))?,
+        // "wgsl" => {
+        //     let input = String::from_utf8(input)?;
+        //     let result = naga::front::wgsl::parse_str(&input);
+        //     match result {
+        //         Ok(v) => (v, Some(input)),
+        //         Err(ref e) => {
+        //             e.emit_to_stderr_with_path(&input, input_path);
+        //             return Err(CliError("Could not parse WGSL").into());
+        //         }
+        //     }
+        // }
         "wgsl" => {
             let input = String::from_utf8(input)?;
-            let result = naga::front::wgsl::parse_str(&input);
+            let result = naga::front::wgsl::parse_module(&provider, &input_path, &input);
             match result {
                 Ok(v) => (v, Some(input)),
                 Err(ref e) => {
@@ -637,7 +675,7 @@ use codespan_reporting::{
         termcolor::{ColorChoice, StandardStream},
     },
 };
-use naga::WithSpan;
+use naga::{WithSpan, front::wgsl::SourceProvider};
 
 pub fn emit_glsl_parser_error(errors: Vec<naga::front::glsl::Error>, filename: &str, source: &str) {
     let files = SimpleFile::new(filename, source);
