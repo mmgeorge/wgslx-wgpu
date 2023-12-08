@@ -3,6 +3,7 @@ use crate::front::wgsl::error::NumberError;
 use crate::front::wgsl::parse::{conv, Number};
 use crate::front::wgsl::Scalar;
 use crate::Span;
+use crate::span::FileId;
 
 type TokenSpan<'a> = (Token<'a>, Span);
 
@@ -219,14 +220,16 @@ pub(in crate::front::wgsl) struct Lexer<'a> {
     pub(in crate::front::wgsl) source: &'a str,
     // The byte offset of the end of the last non-trivia token.
     last_end_offset: usize,
+    pub file_id: FileId, 
 }
 
 impl<'a> Lexer<'a> {
-    pub(in crate::front::wgsl) const fn new(input: &'a str) -> Self {
+    pub(in crate::front::wgsl) const fn new(input: &'a str, file_id: FileId) -> Self {
         Lexer {
             input,
             source: input,
             last_end_offset: 0,
+            file_id
         }
     }
 
@@ -246,7 +249,8 @@ impl<'a> Lexer<'a> {
         let start = self.current_byte_offset();
         let res = inner(self)?;
         let end = self.current_byte_offset();
-        Ok((res, Span::from(start..end)))
+        
+        Ok((res, Span::from((start..end, self.file_id))))
     }
 
     pub(in crate::front::wgsl) fn start_byte_offset(&mut self) -> usize {
@@ -273,7 +277,7 @@ impl<'a> Lexer<'a> {
     }
 
     pub(in crate::front::wgsl) fn span_from(&self, offset: usize) -> Span {
-        Span::from(offset..self.last_end_offset)
+        Span::from((offset..self.last_end_offset, self.file_id))
     }
 
     /// Return the next non-whitespace token from `self`.
@@ -477,7 +481,7 @@ impl<'a> Lexer<'a> {
 #[cfg(test)]
 #[track_caller]
 fn sub_test(source: &str, expected_tokens: &[Token]) {
-    let mut lex = Lexer::new(source);
+    let mut lex = Lexer::new(source, 0);
     for &token in expected_tokens {
         assert_eq!(lex.next().0, token);
     }

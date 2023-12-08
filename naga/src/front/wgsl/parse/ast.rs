@@ -64,6 +64,13 @@ pub struct TranslationUnit<'a> {
     pub path: Option<PathBuf>
 }
 
+impl TranslationUnit<'_> {
+    pub fn reset(&mut self) {
+        self.imports.clear();
+        self.path = None; 
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Ident<'a> {
     pub name: &'a str,

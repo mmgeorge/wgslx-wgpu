@@ -1,26 +1,30 @@
 use crate::{Arena, Handle, UniqueArena};
 use std::{error::Error, fmt, ops::Range};
 
+pub type FileId = u32; 
+
 /// A source code span, used for error reporting.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Span {
-    start: u32,
-    end: u32,
+    pub file_id: Option<FileId>, 
+    pub start: u32,
+    pub end: u32,
 }
 
 impl Span {
-    pub const UNDEFINED: Self = Self { start: 0, end: 0 };
+    pub const UNDEFINED: Self = Self { start: 0, end: 0, file_id: None };
     /// Creates a new `Span` from a range of byte indices
     ///
     /// Note: end is exclusive, it doesn't belong to the `Span`
-    pub const fn new(start: u32, end: u32) -> Self {
-        Span { start, end }
+    pub const fn new(start: u32, end: u32, file_id: Option<FileId>) -> Self {
+        Span { file_id, start, end }
     }
 
     /// Returns a new `Span` starting at `self` and ending at `other`
     pub const fn until(&self, other: &Self) -> Self {
         Span {
+            file_id: self.file_id,
             start: self.start,
             end: other.end,
         }
@@ -38,6 +42,7 @@ impl Span {
         } else {
             // Both self and other are defined so calculate the span that contains them both
             Span {
+                file_id: self.file_id,
                 start: self.start.min(other.start),
                 end: self.end.max(other.end),
             }
@@ -87,6 +92,19 @@ impl Span {
 impl From<Range<usize>> for Span {
     fn from(range: Range<usize>) -> Self {
         Span {
+            file_id: None,
+            start: range.start as u32,
+            end: range.end as u32,
+        }
+    }
+}
+
+impl From<(Range<usize>, FileId)> for Span {
+    fn from(tuple: (Range<usize>, FileId)) -> Self {
+        let (range, file_id) = tuple;
+
+        Span {
+            file_id: Some(file_id),
             start: range.start as u32,
             end: range.end as u32,
         }
@@ -400,7 +418,7 @@ impl<T, E, E2> MapErrWithSpan<E, E2> for Result<T, WithSpan<E>> {
 fn span_location() {
     let source = "12\n45\n\n89\n";
     assert_eq!(
-        Span { start: 0, end: 1 }.location(source),
+        Span { start: 0, end: 1, file_id: None }.location(source),
         SourceLocation {
             line_number: 1,
             line_position: 1,
@@ -409,7 +427,7 @@ fn span_location() {
         }
     );
     assert_eq!(
-        Span { start: 1, end: 2 }.location(source),
+        Span { start: 1, end: 2, file_id: None }.location(source),
         SourceLocation {
             line_number: 1,
             line_position: 2,
@@ -418,7 +436,7 @@ fn span_location() {
         }
     );
     assert_eq!(
-        Span { start: 2, end: 3 }.location(source),
+        Span { start: 2, end: 3, file_id: None }.location(source),
         SourceLocation {
             line_number: 1,
             line_position: 3,
@@ -427,7 +445,7 @@ fn span_location() {
         }
     );
     assert_eq!(
-        Span { start: 3, end: 5 }.location(source),
+        Span { start: 3, end: 5, file_id: None }.location(source),
         SourceLocation {
             line_number: 2,
             line_position: 1,
@@ -436,7 +454,7 @@ fn span_location() {
         }
     );
     assert_eq!(
-        Span { start: 4, end: 6 }.location(source),
+        Span { start: 4, end: 6, file_id: None }.location(source),
         SourceLocation {
             line_number: 2,
             line_position: 2,
@@ -445,7 +463,7 @@ fn span_location() {
         }
     );
     assert_eq!(
-        Span { start: 5, end: 6 }.location(source),
+        Span { start: 5, end: 6, file_id: None }.location(source),
         SourceLocation {
             line_number: 2,
             line_position: 3,
@@ -454,7 +472,7 @@ fn span_location() {
         }
     );
     assert_eq!(
-        Span { start: 6, end: 7 }.location(source),
+        Span { start: 6, end: 7, file_id: None }.location(source),
         SourceLocation {
             line_number: 3,
             line_position: 1,
@@ -463,7 +481,7 @@ fn span_location() {
         }
     );
     assert_eq!(
-        Span { start: 7, end: 8 }.location(source),
+        Span { start: 7, end: 8, file_id: None }.location(source),
         SourceLocation {
             line_number: 4,
             line_position: 1,
@@ -472,7 +490,7 @@ fn span_location() {
         }
     );
     assert_eq!(
-        Span { start: 8, end: 9 }.location(source),
+        Span { start: 8, end: 9, file_id: None }.location(source),
         SourceLocation {
             line_number: 4,
             line_position: 2,
@@ -481,7 +499,7 @@ fn span_location() {
         }
     );
     assert_eq!(
-        Span { start: 9, end: 10 }.location(source),
+        Span { start: 9, end: 10, file_id: None }.location(source),
         SourceLocation {
             line_number: 4,
             line_position: 3,
@@ -490,7 +508,7 @@ fn span_location() {
         }
     );
     assert_eq!(
-        Span { start: 10, end: 11 }.location(source),
+        Span { start: 10, end: 11, file_id: None }.location(source),
         SourceLocation {
             line_number: 5,
             line_position: 1,

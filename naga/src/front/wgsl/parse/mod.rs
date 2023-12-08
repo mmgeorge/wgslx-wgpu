@@ -3,6 +3,7 @@ use crate::front::wgsl::parse::lexer::{Lexer, Token};
 use crate::front::wgsl::parse::number::Number;
 use crate::front::wgsl::Scalar;
 use crate::front::SymbolTable;
+use crate::span::FileId;
 use crate::{Arena, FastIndexSet, Handle, ShaderStage, Span};
 
 pub mod ast;
@@ -2166,7 +2167,7 @@ impl Parser {
         // read attributes
         let mut binding = None;
         let mut stage = ParsedAttribute::default();
-        let mut compute_span = Span::new(0, 0);
+        let mut compute_span = Span::new(0, 0, Some(lexer.file_id));
         let mut workgroup_size = ParsedAttribute::default();
         let mut early_depth_test = ParsedAttribute::default();
 
@@ -2336,10 +2337,10 @@ impl Parser {
         }
     }
 
-    pub fn parse<'a>(&mut self, tu: &mut ast::TranslationUnit<'a>, source: &'a str) -> Result<(), Error<'a>> {
+    pub fn parse<'a>(&mut self, tu: &mut ast::TranslationUnit<'a>, source: &'a str, file_id: FileId) -> Result<(), Error<'a>> {
         self.reset();
 
-        let mut lexer = Lexer::new(source);
+        let mut lexer = Lexer::new(source, file_id);
         loop {
             match self.global_decl(&mut lexer, tu) {
                 Err(error) => return Err(error),

@@ -1,7 +1,7 @@
 #![allow(clippy::manual_strip)]
 #[allow(unused_imports)]
 use std::fs;
-use std::{error::Error, fmt, io::Read, path::{Path, PathBuf}, str::FromStr, collections::HashMap};
+use std::{error::Error, fmt, io::Read, path::{Path, PathBuf}, str::FromStr, collections::HashMap, cell::UnsafeCell, ops::Range};
 
 /// Translate shaders to different formats.
 #[derive(argh::FromArgs, Debug, Clone)]
@@ -235,25 +235,80 @@ impl std::error::Error for CliError {}
 
 
 struct FileProvider {
-    sources: HashMap<PathBuf, String>
+    paths: UnsafeCell<HashMap<PathBuf, u32>>,
+    files: UnsafeCell<HashMap<u32, File>>,
+    id_counter: UnsafeCell<u32>, 
 }
 
 impl FileProvider {
     fn new() -> Self {
-        Self { sources: HashMap::new() }
+        Self {
+            files: UnsafeCell::new(HashMap::new()),
+            paths: UnsafeCell::new(HashMap::new()),
+            id_counter: UnsafeCell::new(0),
+        }
     }
 }
 
-impl SourceProvider for FileProvider {
-    fn get_source(&self, path: &Path) -> Option<&str> {
-        let source = fs::read_to_string(path)
-            .expect("Unable to parse file at path");
+impl SourceProvider<'_> for FileProvider {
+    fn visit(&self, path: &Path) -> Option<u32> {
+        // SAFETY: We never remove keys from the hashmap, nor remove them. All mutability
+        // happens just for caching values. Concurrency not supported. 
+        unsafe {
+            let paths = &mut *self.paths.get() ;
+            let files = &mut *self.files.get();
+            let id_counter = &mut *self.id_counter.get(); 
 
-        println!("Got source {:?}", path); 
+            let id_entry = paths.entry(path.to_path_buf())
+                .or_insert_with(|| {
+                    *id_counter += 1;
+                    let source = fs::read_to_string(path).expect("Unable to parse file"); 
+                    files.insert(*id_counter, File::new(*id_counter, path.to_path_buf(), source)); 
+                    *id_counter
+                });
 
-        // self.sources.insert(path.to_owned(), source);
+            Some(*id_entry)
+        }
+    }
 
-        Some(Box::leak(Box::new(source)))
+    fn get(&self, id: u32) -> Option<&naga::front::wgsl::File> {
+        unsafe {
+            let files = &*self.files.get();
+
+            files.get(&id)
+        }
+    }
+}
+
+type FileId = u32; 
+
+impl<'a> Files<'a> for FileProvider {
+    type Source = &'a str;
+    type FileId = FileId;
+    type Name = &'a str;
+    
+    fn name(&'a self, file_id: FileId) -> Result<Self::Name, files::Error> {
+        let file = self.get(file_id).ok_or(files::Error::FileMissing)?; 
+
+        Ok(file.name())
+    }
+
+    fn source(&self, file_id: FileId) -> Result<&str, files::Error> {
+        let file = self.get(file_id).ok_or(files::Error::FileMissing)?; 
+
+        Ok(file.source().as_ref())
+    }
+
+    fn line_index(&self, file_id: FileId, byte_index: usize) -> Result<usize, files::Error> {
+        let file = self.get(file_id).ok_or(files::Error::FileMissing)?; 
+
+        file.line_index((), byte_index)
+    }
+
+    fn line_range(&self, file_id: FileId, line_index: usize) -> Result<Range<usize>, files::Error> {
+        let file = self.get(file_id).ok_or(files::Error::FileMissing)?; 
+
+        file.line_range((), line_index)
     }
 }
 
@@ -350,11 +405,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         // }
         "wgsl" => {
             let input = String::from_utf8(input)?;
-            let result = naga::front::wgsl::parse_module(&provider, &input_path, &input);
+            let id = provider.visit(&input_path).expect("Unable to parse file"); 
+            let result = naga::front::wgsl::parse_module(&provider, id);
+
             match result {
                 Ok(v) => (v, Some(input)),
                 Err(ref e) => {
-                    e.emit_to_stderr_with_path(&input, input_path);
+                    e.emit_to_stderr_with_provider(&provider);
                     return Err(CliError("Could not parse WGSL").into());
                 }
             }
@@ -669,13 +726,13 @@ fn write_output(
 
 use codespan_reporting::{
     diagnostic::{Diagnostic, Label},
-    files::SimpleFile,
+    files::{SimpleFile, Files, self},
     term::{
         self,
         termcolor::{ColorChoice, StandardStream},
     },
 };
-use naga::{WithSpan, front::wgsl::SourceProvider};
+use naga::{WithSpan, front::wgsl::{SourceProvider, File}};
 
 pub fn emit_glsl_parser_error(errors: Vec<naga::front::glsl::Error>, filename: &str, source: &str) {
     let files = SimpleFile::new(filename, source);

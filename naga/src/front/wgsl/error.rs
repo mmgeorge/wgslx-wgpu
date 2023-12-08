@@ -1,14 +1,17 @@
 use crate::front::wgsl::parse::lexer::Token;
 use crate::front::wgsl::Scalar;
 use crate::proc::{Alignment, ConstantEvaluatorError, ResolveError};
+use crate::span::{FileId, SpanProvider};
 use crate::{SourceLocation, Span};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::files::SimpleFile;
+use codespan_reporting::files::Files;
 use codespan_reporting::term;
 use std::borrow::Cow;
 use std::ops::Range;
-use termcolor::{ColorChoice, NoColor, StandardStream};
+use termcolor::{ColorChoice, StandardStream};
 use thiserror::Error;
+
+use super::SourceProvider;
 
 #[derive(Clone, Debug)]
 pub struct ParseError {
@@ -28,14 +31,14 @@ impl ParseError {
         &self.message
     }
 
-    fn diagnostic(&self) -> Diagnostic<()> {
-        let diagnostic = Diagnostic::error()
+    fn diagnostic(&self) -> Diagnostic<FileId> {
+        let diagnostic = Diagnostic::<FileId>::error()
             .with_message(self.message.to_string())
             .with_labels(
                 self.labels
                     .iter()
                     .map(|label| {
-                        Label::primary((), label.0.to_range().unwrap())
+                        Label::primary(label.0.file_id.unwrap(), label.0.to_range().unwrap())
                             .with_message(label.1.to_string())
                     })
                     .collect(),
@@ -50,40 +53,38 @@ impl ParseError {
     }
 
     /// Emits a summary of the error to standard error stream.
-    pub fn emit_to_stderr(&self, source: &str) {
-        self.emit_to_stderr_with_path(source, "wgsl")
-    }
+    // pub fn emit_to_stderr(&self, source: &str) {
+    //     self.emit_to_stderr_with_path(source, "wgsl")
+    // }
 
-    /// Emits a summary of the error to standard error stream.
-    pub fn emit_to_stderr_with_path<P>(&self, source: &str, path: P)
-    where
-        P: AsRef<std::path::Path>,
-    {
-        let path = path.as_ref().display().to_string();
-        let files = SimpleFile::new(path, source);
+    pub fn emit_to_stderr_with_provider<'a>(&self, provider: &'a impl Files<'a, FileId = FileId>) {
         let config = codespan_reporting::term::Config::default();
         let writer = StandardStream::stderr(ColorChoice::Auto);
-        term::emit(&mut writer.lock(), &config, &files, &self.diagnostic())
+
+        term::emit(&mut writer.lock(), &config, provider, &self.diagnostic())
             .expect("cannot write error");
     }
 
     /// Emits a summary of the error to a string.
     pub fn emit_to_string(&self, source: &str) -> String {
-        self.emit_to_string_with_path(source, "wgsl")
+        todo!()
     }
 
     /// Emits a summary of the error to a string.
-    pub fn emit_to_string_with_path<P>(&self, source: &str, path: P) -> String
-    where
-        P: AsRef<std::path::Path>,
-    {
-        let path = path.as_ref().display().to_string();
-        let files = SimpleFile::new(path, source);
-        let config = codespan_reporting::term::Config::default();
-        let mut writer = NoColor::new(Vec::new());
-        term::emit(&mut writer, &config, &files, &self.diagnostic()).expect("cannot write error");
-        String::from_utf8(writer.into_inner()).unwrap()
-    }
+    // pub fn emit_to_string_with_path<P>(&self, source: &str, path: P) -> String
+    // where
+    //     P: AsRef<std::path::Path>,
+    // {
+    //     let path = path.as_ref().display().to_string();
+    //     // let files = SimpleFile::new(path, source);
+    //     let mut files = SimpleFiles::new(); 
+    //     let id = files.add(path, source);
+        
+    //     let config = codespan_reporting::term::Config::default();
+    //     let mut writer = NoColor::new(Vec::new());
+    //     term::emit(&mut writer, &config, &files, &self.diagnostic(id)).expect("cannot write error");
+    //     String::from_utf8(writer.into_inner()).unwrap()
+    // }
 
     /// Returns a [`SourceLocation`] for the first label in the error message.
     pub fn location(&self, source: &str) -> Option<SourceLocation> {
@@ -261,7 +262,7 @@ pub enum Error<'a> {
 }
 
 impl<'a> Error<'a> {
-    pub(crate) fn as_parse_error(&self, source: &'a str) -> ParseError {
+    pub(crate) fn as_parse_error(&self, provider: &'a impl SourceProvider<'a>) -> ParseError {
         match *self {
             Error::Unexpected(unexpected_span, expected) => {
                 let expected_str = match expected {
@@ -299,7 +300,7 @@ impl<'a> Error<'a> {
                 ParseError {
                     message: format!(
                         "expected {}, found '{}'",
-                        expected_str, &source[unexpected_span],
+                        expected_str, &provider.source_at_unchecked(unexpected_span),
                     ),
                     labels: vec![(unexpected_span, format!("expected {expected_str}").into())],
                     notes: vec![],
@@ -316,7 +317,7 @@ impl<'a> Error<'a> {
                 notes: vec![],
             },
             Error::BadNumber(bad_span, ref err) => ParseError {
-                message: format!("{}: `{}`", err, &source[bad_span],),
+                message: format!("{}: `{}`", err, &provider.source_at_unchecked(bad_span),),
                 labels: vec![(bad_span, err.to_string().into())],
                 notes: vec![],
             },
@@ -334,7 +335,7 @@ impl<'a> Error<'a> {
                 notes: vec![],
             },
             Error::BadAccessor(accessor_span) => ParseError {
-                message: format!("invalid field accessor `{}`", &source[accessor_span],),
+                message: format!("invalid field accessor `{}`", &provider.source_at_unchecked(accessor_span)),
                 labels: vec![(accessor_span, "invalid accessor".into())],
                 notes: vec![],
             },
@@ -344,7 +345,7 @@ impl<'a> Error<'a> {
                 notes: vec![],
             },
             Error::UnknownScalarType(bad_span) => ParseError {
-                message: format!("unknown scalar type: '{}'", &source[bad_span]),
+                message: format!("unknown scalar type: '{}'", &provider.source_at_unchecked(bad_span)),
                 labels: vec![(bad_span, "unknown scalar type".into())],
                 notes: vec!["Valid scalar types are f32, f64, i32, u32, bool".into()],
             },
@@ -366,7 +367,7 @@ impl<'a> Error<'a> {
             Error::BadTexture(bad_span) => ParseError {
                 message: format!(
                     "expected an image, but found '{}' which is not an image",
-                    &source[bad_span]
+                    &provider.source_at_unchecked(bad_span)
                 ),
                 labels: vec![(bad_span, "not an image".into())],
                 notes: vec![],
@@ -391,7 +392,7 @@ impl<'a> Error<'a> {
             Error::InvalidForInitializer(bad_span) => ParseError {
                 message: format!(
                     "for(;;) initializer is not an assignment or a function call: '{}'",
-                    &source[bad_span]
+                    &provider.source_at_unchecked(bad_span)
                 ),
                 labels: vec![(bad_span, "not an assignment or function call".into())],
                 notes: vec![],
@@ -404,7 +405,7 @@ impl<'a> Error<'a> {
             Error::InvalidGatherComponent(bad_span) => ParseError {
                 message: format!(
                     "textureGather component '{}' doesn't exist, must be 0, 1, 2, or 3",
-                    &source[bad_span]
+                    &provider.source_at_unchecked(bad_span)
                 ),
                 labels: vec![(bad_span, "invalid component".into())],
                 notes: vec![],
@@ -425,48 +426,48 @@ impl<'a> Error<'a> {
             Error::ReservedIdentifierPrefix(bad_span) => ParseError {
                 message: format!(
                     "Identifier starts with a reserved prefix: '{}'",
-                    &source[bad_span]
+                    &provider.source_at_unchecked(bad_span)
                 ),
                 labels: vec![(bad_span, "invalid identifier".into())],
                 notes: vec![],
             },
             Error::UnknownAddressSpace(bad_span) => ParseError {
-                message: format!("unknown address space: '{}'", &source[bad_span]),
+                message: format!("unknown address space: '{}'", &provider.source_at_unchecked(bad_span)),
                 labels: vec![(bad_span, "unknown address space".into())],
                 notes: vec![],
             },
             Error::RepeatedAttribute(bad_span) => ParseError {
-                message: format!("repeated attribute: '{}'", &source[bad_span]),
+                message: format!("repeated attribute: '{}'", &provider.source_at_unchecked(bad_span)),
                 labels: vec![(bad_span, "repeated attribute".into())],
                 notes: vec![],
             },
             Error::UnknownAttribute(bad_span) => ParseError {
-                message: format!("unknown attribute: '{}'", &source[bad_span]),
+                message: format!("unknown attribute: '{}'", &provider.source_at_unchecked(bad_span)),
                 labels: vec![(bad_span, "unknown attribute".into())],
                 notes: vec![],
             },
             Error::UnknownBuiltin(bad_span) => ParseError {
-                message: format!("unknown builtin: '{}'", &source[bad_span]),
+                message: format!("unknown builtin: '{}'", &provider.source_at_unchecked(bad_span)),
                 labels: vec![(bad_span, "unknown builtin".into())],
                 notes: vec![],
             },
             Error::UnknownAccess(bad_span) => ParseError {
-                message: format!("unknown access: '{}'", &source[bad_span]),
+                message: format!("unknown access: '{}'", &provider.source_at_unchecked(bad_span)),
                 labels: vec![(bad_span, "unknown access".into())],
                 notes: vec![],
             },
             Error::UnknownStorageFormat(bad_span) => ParseError {
-                message: format!("unknown storage format: '{}'", &source[bad_span]),
+                message: format!("unknown storage format: '{}'", &provider.source_at_unchecked(bad_span)),
                 labels: vec![(bad_span, "unknown storage format".into())],
                 notes: vec![],
             },
             Error::UnknownConservativeDepth(bad_span) => ParseError {
-                message: format!("unknown conservative depth: '{}'", &source[bad_span]),
+                message: format!("unknown conservative depth: '{}'", &provider.source_at_unchecked(bad_span)),
                 labels: vec![(bad_span, "unknown conservative depth".into())],
                 notes: vec![],
             },
             Error::UnknownType(bad_span) => ParseError {
-                message: format!("unknown type: '{}'", &source[bad_span]),
+                message: format!("unknown type: '{}'", &provider.source_at_unchecked(bad_span)),
                 labels: vec![(bad_span, "unknown type".into())],
                 notes: vec![],
             },
@@ -491,7 +492,7 @@ impl<'a> Error<'a> {
                 notes: vec![],
             },
             Error::TypeNotConstructible(span) => ParseError {
-                message: format!("type `{}` is not constructible", &source[span]),
+                message: format!("type `{}` is not constructible", &provider.source_at_unchecked(span)),
                 labels: vec![(span, "type is not constructible".into())],
                 notes: vec![],
             },
@@ -504,31 +505,31 @@ impl<'a> Error<'a> {
                 ParseError {
                     message: format!(
                         "the type of `{}` is expected to be `{}`, but got `{}`",
-                        &source[name], expected, got,
+                        &provider.source_at_unchecked(name), expected, got,
                     ),
                     labels: vec![(
                         name,
-                        format!("definition of `{}`", &source[name]).into(),
+                        format!("definition of `{}`", &provider.source_at_unchecked(name)).into(),
                     )],
                     notes: vec![],
                 }
             }
             Error::MissingType(name_span) => ParseError {
-                message: format!("variable `{}` needs a type", &source[name_span]),
+                message: format!("variable `{}` needs a type", &provider.source_at_unchecked(name_span)),
                 labels: vec![(
                     name_span,
-                    format!("definition of `{}`", &source[name_span]).into(),
+                    format!("definition of `{}`", &provider.source_at_unchecked(name_span)).into(),
                 )],
                 notes: vec![],
             },
             Error::MissingAttribute(name, name_span) => ParseError {
                 message: format!(
                     "variable `{}` needs a '{}' attribute",
-                    &source[name_span], name
+                    &provider.source_at_unchecked(name_span), name
                 ),
                 labels: vec![(
                     name_span,
-                    format!("definition of `{}`", &source[name_span]).into(),
+                    format!("definition of `{}`", &provider.source_at_unchecked(name_span)).into(),
                 )],
                 notes: vec![],
             },
@@ -570,7 +571,7 @@ impl<'a> Error<'a> {
                         Some((binding_span, "this is an immutable binding".into())),
                         vec![format!(
                             "consider declaring '{}' with `var` instead of `let`",
-                            &source[binding_span]
+                            &provider.source_at_unchecked(binding_span)
                         )],
                     ),
                     InvalidAssignmentType::Other => (None, vec![]),
@@ -590,34 +591,34 @@ impl<'a> Error<'a> {
                 notes: vec![],
             },
             Error::ReservedKeyword(name_span) => ParseError {
-                message: format!("name `{}` is a reserved keyword", &source[name_span]),
+                message: format!("name `{}` is a reserved keyword", &provider.source_at_unchecked(name_span)),
                 labels: vec![(
                     name_span,
-                    format!("definition of `{}`", &source[name_span]).into(),
+                    format!("definition of `{}`", &provider.source_at_unchecked(name_span)).into(),
                 )],
                 notes: vec![],
             },
             Error::Redefinition { previous, current } => ParseError {
-                message: format!("redefinition of `{}`", &source[current]),
+                message: format!("redefinition of `{}`", &provider.source_at_unchecked(current)),
                 labels: vec![
                     (
                         current,
-                        format!("redefinition of `{}`", &source[current]).into(),
+                        format!("redefinition of `{}`", &provider.source_at_unchecked(current)).into(),
                     ),
                     (
                         previous,
-                        format!("previous definition of `{}`", &source[previous]).into(),
+                        format!("previous definition of `{}`", &provider.source_at_unchecked(previous)).into(),
                     ),
                 ],
                 notes: vec![],
             },
             Error::RecursiveDeclaration { ident, usage } => ParseError {
-                message: format!("declaration of `{}` is recursive", &source[ident]),
+                message: format!("declaration of `{}` is recursive", &provider.source_at_unchecked(ident)),
                 labels: vec![(ident, "".into()), (usage, "uses itself here".into())],
                 notes: vec![],
             },
             Error::CyclicDeclaration { ident, ref path } => ParseError {
-                message: format!("declaration of `{}` is cyclic", &source[ident]),
+                message: format!("declaration of `{}` is cyclic", &provider.source_at_unchecked(ident)),
                 labels: path
                     .iter()
                     .enumerate()
@@ -629,7 +630,7 @@ impl<'a> Error<'a> {
                                 if i == path.len() - 1 {
                                     "ending the cycle".into()
                                 } else {
-                                    format!("uses `{}`", &source[ident]).into()
+                                    format!("uses `{}`", &provider.source_at_unchecked(ident)).into()
                                 },
                             ),
                         ]
@@ -649,12 +650,13 @@ impl<'a> Error<'a> {
                     .into(),
                 )],
                 notes: vec![if uint {
-                    format!("suffix the integer with a `u`: '{}u'", &source[span])
+                    format!("suffix the integer with a `u`: '{}u'", &provider.source_at_unchecked(span))
                 } else {
-                    let span = span.to_range().unwrap();
+                    let span = Span::new(span.start, span.end - 1, span.file_id); 
+                     
                     format!(
                         "remove the `u` suffix: '{}'",
-                        &source[span.start..span.end - 1]
+                        &provider.source_at_unchecked(span)
                     )
                 }],
             },
