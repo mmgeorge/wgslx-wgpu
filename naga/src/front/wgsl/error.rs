@@ -8,7 +8,7 @@ use codespan_reporting::files::Files;
 use codespan_reporting::term;
 use std::borrow::Cow;
 use std::ops::Range;
-use termcolor::{ColorChoice, StandardStream};
+use termcolor::{ColorChoice, StandardStream, NoColor};
 use thiserror::Error;
 
 use super::SourceProvider;
@@ -63,6 +63,16 @@ impl ParseError {
 
         term::emit(&mut writer.lock(), &config, provider, &self.diagnostic())
             .expect("cannot write error");
+    }
+
+    pub fn emit_to_string_with_provider<'a>(&self, provider: &'a impl Files<'a, FileId = FileId>) -> String {
+        let config = codespan_reporting::term::Config::default();
+        let mut writer = NoColor::new(Vec::new());
+        
+        term::emit(&mut writer, &config, provider, &self.diagnostic())
+            .expect("cannot write error");
+
+        String::from_utf8(writer.into_inner()).unwrap()
     }
 
     /// Emits a summary of the error to a string.

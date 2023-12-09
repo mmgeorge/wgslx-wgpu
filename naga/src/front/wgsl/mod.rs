@@ -2,7 +2,9 @@
 Frontend for [WGSL][wgsl] (WebGPU Shading Language).
 
 [wgsl]: https://gpuweb.github.io/gpuweb/wgsl.html
-*/
+ */
+
+pub mod source_provider;
 
 mod error;
 mod index;
@@ -13,13 +15,10 @@ mod tests;
 mod to_wgsl;
 
 use std::collections::{HashSet};
-use std::ops::Range;
-use std::path::{Path, PathBuf};
 
 use crate::front::wgsl::error::Error;
 use crate::front::wgsl::parse::Parser;
 use crate::span::FileId;
-use codespan_reporting::files::{Files, self, line_starts};
 use thiserror::Error;
 
 pub use crate::front::wgsl::error::ParseError;
@@ -27,97 +26,8 @@ use crate::front::wgsl::lower::Lowerer;
 use crate::{Scalar, Span};
 
 use self::parse::ast::{self};
+use self::source_provider::{File, SourceProvider};
 
-
-pub trait SourceProvider<'a>: Files<'a> {
-    fn visit(&self, path: &Path) -> Option<FileId>;
-    fn get(&self, id: FileId) -> Option<&File>;
-
-    fn source_at(&self, span: Span) -> Option<&str> {
-        let id = span.file_id?; 
-        let file = self.get(id)?;
-
-        Some(&file.source.as_str()[span])
-    }
-
-    fn source_at_unchecked(&self, span: Span) -> &str {
-        self.source_at(span)
-            .expect("Unable to get source")
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct File {
-    id: FileId, 
-    path: PathBuf,
-    source: String,
-    name: String, 
-    line_starts: Vec<usize>,
-}
-
-impl File {
-    /// Create a new source file.
-    pub fn new(id: FileId, path: PathBuf, source: String) -> File {
-        File {
-            id,
-            name: path.clone().to_string_lossy().to_string(),
-            path,
-            line_starts: line_starts(source.as_ref()).collect(),
-            source,
-        }
-    }
-
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-
-    pub fn id(&self) -> FileId {
-        self.id
-    }
-
-    /// Return the name of the file.
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    /// Return the source of the file.
-    pub fn source(&self) -> &str {
-        &self.source
-    }
-
-    /// Return the starting byte index of the line with the specified line index.
-    /// Convenience method that already generates errors if necessary.
-    pub fn line_start(&self, line_index: usize) -> Result<usize, files::Error> {
-        use std::cmp::Ordering;
-
-        match line_index.cmp(&self.line_starts.len()) {
-            Ordering::Less => Ok(self
-                .line_starts
-                .get(line_index)
-                .cloned()
-                .expect("failed despite previous check")),
-            Ordering::Equal => Ok(self.source.len()),
-            Ordering::Greater => Err(files::Error::LineTooLarge {
-                given: line_index,
-                max: self.line_starts.len() - 1,
-            }),
-        }
-    }
-
-    pub fn line_index(&self, (): (), byte_index: usize) -> Result<usize, files::Error> {
-        Ok(self
-            .line_starts
-            .binary_search(&byte_index)
-            .unwrap_or_else(|next_line| next_line - 1))
-    }
-
-    pub fn line_range(&self, (): (), line_index: usize) -> Result<Range<usize>, files::Error> {
-        let line_start = self.line_start(line_index)?;
-        let next_line_start = self.line_start(line_index + 1)?;
-
-        Ok(line_start..next_line_start)
-    }
-}
 
 pub struct Frontend {
     parser: Parser,
@@ -162,7 +72,6 @@ pub fn parse_str<'a>(source: &'a str) -> Result<crate::Module, ParseError> {
     todo!()
 }
 
-
 // Returns translation units in depth-first order
 fn parse_translation_unit<'a>(
     provider: &'a impl SourceProvider<'a>,
@@ -179,8 +88,7 @@ fn parse_translation_unit<'a>(
         translation_unit.reset();
 
         let file = provider.get(file_id).expect("File not found in source provider");
-        let source = file.source();
-        let path = file.path(); 
+        let path = file.path().to_owned(); 
             
         Frontend::new().parse_into(&mut translation_unit, file)
             .map_err(|x| x.as_parse_error(provider))?; 

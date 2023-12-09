@@ -234,53 +234,71 @@ impl fmt::Display for CliError {
 impl std::error::Error for CliError {}
 
 
+struct FileProviderInner {
+    paths: HashMap<PathBuf, FileId>,
+    pub files: HashMap<FileId, File>,
+    id_counter: FileId, 
+}
+
+impl FileProviderInner {
+    fn new() -> Self {
+        Self {
+            files: HashMap::new(),
+            paths: HashMap::new(),
+            id_counter: 0,
+        }
+    }
+
+    fn visit(&mut self, path: &Path) -> Option<FileId> {
+        let id_entry = self.paths.entry(path.to_path_buf())
+            .or_insert_with(|| {
+                self.id_counter += 1;
+                let source = fs::read_to_string(path).expect("Unable to parse file"); 
+                self.files.insert(self.id_counter, File::new(self.id_counter, path.to_path_buf(), source)); 
+                self.id_counter
+            });
+
+        Some(*id_entry)
+    }
+
+    fn get(&self, id: FileId) -> Option<&File> {
+        self.files.get(&id)
+    }
+}
+
 struct FileProvider {
-    paths: UnsafeCell<HashMap<PathBuf, u32>>,
-    files: UnsafeCell<HashMap<u32, File>>,
-    id_counter: UnsafeCell<u32>, 
+    inner: UnsafeCell<FileProviderInner>
 }
 
 impl FileProvider {
     fn new() -> Self {
         Self {
-            files: UnsafeCell::new(HashMap::new()),
-            paths: UnsafeCell::new(HashMap::new()),
-            id_counter: UnsafeCell::new(0),
+            inner: FileProviderInner::new().into()
         }
     }
 }
+
 
 impl SourceProvider<'_> for FileProvider {
-    fn visit(&self, path: &Path) -> Option<u32> {
+    fn visit(&self, path: &Path) -> Option<FileId> {
         // SAFETY: We never remove keys from the hashmap, nor remove them. All mutability
-        // happens just for caching values. Concurrency not supported. 
+        // happens just for caching values
         unsafe {
-            let paths = &mut *self.paths.get() ;
-            let files = &mut *self.files.get();
-            let id_counter = &mut *self.id_counter.get(); 
+            let inner = &mut *self.inner.get(); 
 
-            let id_entry = paths.entry(path.to_path_buf())
-                .or_insert_with(|| {
-                    *id_counter += 1;
-                    let source = fs::read_to_string(path).expect("Unable to parse file"); 
-                    files.insert(*id_counter, File::new(*id_counter, path.to_path_buf(), source)); 
-                    *id_counter
-                });
-
-            Some(*id_entry)
+            inner.visit(path)
         }
     }
 
-    fn get(&self, id: u32) -> Option<&naga::front::wgsl::File> {
+    fn get(&self, id: FileId) -> Option<&naga::front::wgsl::source_provider::File> {
+        // SAFETY: No mutabability
         unsafe {
-            let files = &*self.files.get();
+            let inner = &*self.inner.get();
 
-            files.get(&id)
+            inner.get(id)
         }
     }
 }
-
-type FileId = u32; 
 
 impl<'a> Files<'a> for FileProvider {
     type Source = &'a str;
@@ -732,7 +750,7 @@ use codespan_reporting::{
         termcolor::{ColorChoice, StandardStream},
     },
 };
-use naga::{WithSpan, front::wgsl::{SourceProvider, File}};
+use naga::{front::wgsl::source_provider::{File, FileId, SourceProvider}, WithSpan};
 
 pub fn emit_glsl_parser_error(errors: Vec<naga::front::glsl::Error>, filename: &str, source: &str) {
     let files = SimpleFile::new(filename, source);
