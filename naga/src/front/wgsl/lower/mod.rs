@@ -629,12 +629,18 @@ impl<'source, 'temp, 'out> ExpressionContext<'source, 'temp, 'out> {
     fn apply_load_rule(
         &mut self,
         expr: Typed<Handle<crate::Expression>>,
-    ) -> Result<Handle<crate::Expression>, Error<'source>> {
+        expr_span: Option<Span>,
+) -> Result<Handle<crate::Expression>, Error<'source>> {
         match expr {
-            Typed::Reference(pointer) => {
-                let load = crate::Expression::Load { pointer };
-                let span = self.get_expression_span(pointer);
-                self.append_expression(load, span)
+          Typed::Reference(pointer) => {
+              let load = crate::Expression::Load { pointer };
+              // MG: Workaround - Seems like the expression we are referencing here might not
+              // yet have had it's span added?
+              //
+              // TODO: Better fix?
+              let span = expr_span.unwrap_or_else(|| self.get_expression_span(pointer));
+
+              self.append_expression(load, span)
             }
             Typed::Plain(handle) => Ok(handle),
         }
@@ -1373,7 +1379,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                 let value = match op {
                     Some(op) => {
                         let mut ctx = ctx.as_expression(block, &mut emitter);
-                        let mut left = ctx.apply_load_rule(target)?;
+                        let mut left = ctx.apply_load_rule(target, None)?;
                         ctx.binary_op_splat(op, &mut left, &mut value)?;
                         ctx.append_expression(
                             crate::Expression::Binary {
@@ -1486,8 +1492,10 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
         expr: Handle<ast::Expression<'source>>,
         ctx: &mut ExpressionContext<'source, '_, '_>,
     ) -> Result<Handle<crate::Expression>, Error<'source>> {
+        let span = ctx.ast_expressions.get_span(expr);
         let expr = self.expression_for_reference(expr, ctx)?;
-        ctx.apply_load_rule(expr)
+
+        ctx.apply_load_rule(expr, Some(span))
     }
 
     fn expression_for_reference(
@@ -1671,7 +1679,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                                 // validation will catch that.
                                 Typed::Plain(crate::Expression::Swizzle {
                                     size,
-                                    vector: ctx.apply_load_rule(lowered_base)?,
+                                    vector: ctx.apply_load_rule(lowered_base, None)?,
                                     pattern,
                                 })
                             }
