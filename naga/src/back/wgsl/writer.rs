@@ -2,7 +2,7 @@ use super::Error;
 use crate::{
     back,
     proc::{self, NameKey},
-    valid, Handle, Module, ShaderStage, TypeInner,
+    valid, Handle, Module, ShaderStage, TypeInner, NamedExpression,
 };
 use std::fmt::Write;
 
@@ -617,12 +617,12 @@ impl<W: Write> Writer<W> {
             Statement::Emit(ref range) => {
                 for handle in range.clone() {
                     let info = &func_ctx.info[handle];
-                    let expr_name = if let Some(name) = func_ctx.named_expressions.get(&handle) {
+                    let expr_name = if let Some(expression) = func_ctx.named_expressions.get(&handle) {
                         // Front end provides names for all variables at the start of writing.
                         // But we write them to step by step. We need to recache them
                         // Otherwise, we could accidentally write variable name instead of full expression.
                         // Also, we use sanitized names! It defense backend from generating variable with name from reserved keywords.
-                        Some(self.namer.call(name))
+                        Some(self.namer.call(&expression.name))
                     } else {
                         let expr = &func_ctx.expressions[handle];
                         let min_ref_count = expr.bake_ref_count();
@@ -644,7 +644,7 @@ impl<W: Write> Writer<W> {
                         write!(self.out, "{level}")?;
                         self.start_named_expr(module, handle, func_ctx, &name)?;
                         self.write_expr(module, handle, func_ctx)?;
-                        self.named_expressions.insert(handle, name);
+                        self.named_expressions.insert(handle, NamedExpression::from_name(name));
                         writeln!(self.out, ";")?;
                     }
                 }
@@ -728,7 +728,7 @@ impl<W: Write> Writer<W> {
                 if let Some(expr) = result {
                     let name = format!("{}{}", back::BAKE_PREFIX, expr.index());
                     self.start_named_expr(module, expr, func_ctx, &name)?;
-                    self.named_expressions.insert(expr, name);
+                    self.named_expressions.insert(expr, NamedExpression::from_name(name));
                 }
                 let func_name = &self.names[&NameKey::Function(function)];
                 write!(self.out, "{func_name}(")?;
@@ -749,7 +749,7 @@ impl<W: Write> Writer<W> {
                 write!(self.out, "{level}")?;
                 let res_name = format!("{}{}", back::BAKE_PREFIX, result.index());
                 self.start_named_expr(module, result, func_ctx, &res_name)?;
-                self.named_expressions.insert(result, res_name);
+                self.named_expressions.insert(result, NamedExpression::from_name(res_name));
 
                 let fun_str = fun.to_wgsl();
                 write!(self.out, "atomic{fun_str}(")?;
@@ -767,7 +767,7 @@ impl<W: Write> Writer<W> {
                 // TODO: Obey named expressions here.
                 let res_name = format!("{}{}", back::BAKE_PREFIX, result.index());
                 self.start_named_expr(module, result, func_ctx, &res_name)?;
-                self.named_expressions.insert(result, res_name);
+                self.named_expressions.insert(result, NamedExpression::from_name(res_name));
                 write!(self.out, "workgroupUniformLoad(")?;
                 self.write_expr(module, pointer, func_ctx)?;
                 writeln!(self.out, ");")?;
@@ -1157,8 +1157,8 @@ impl<W: Write> Writer<W> {
     ) -> BackendResult {
         use crate::Expression;
 
-        if let Some(name) = self.named_expressions.get(&expr) {
-            write!(self.out, "{name}")?;
+        if let Some(expression) = self.named_expressions.get(&expr) {
+            write!(self.out, "{}", expression.name)?;
             return Ok(());
         }
 

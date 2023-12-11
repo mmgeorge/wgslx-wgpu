@@ -31,6 +31,10 @@ impl ParseError {
         &self.message
     }
 
+    pub fn notes(&self) -> String {
+        self.notes.join("\n")
+    }
+
     fn diagnostic(&self) -> Diagnostic<FileId> {
         let diagnostic = Diagnostic::<FileId>::error()
             .with_message(self.message.to_string())
@@ -741,12 +745,12 @@ impl<'a> Error<'a> {
                 message: format!("automatic conversions cannot convert `{source_type}` to `{dest_type}`"),
                 labels: vec![
                     (
-                        dest_span,
-                        format!("a value of type {dest_type} is required here").into(),
-                    ),
-                    (
                         source_span,
                         format!("this expression has type {source_type}").into(),
+                    ),
+                    (
+                        dest_span,
+                        format!("a value of type {dest_type} is required here").into(),
                     )
                 ],
                 notes: vec![],

@@ -8,7 +8,7 @@ use crate::front::Typifier;
 use crate::proc::{
     ensure_block_returns, Alignment, ConstantEvaluator, Emitter, Layouter, ResolveContext,
 };
-use crate::{Arena, FastHashMap, FastIndexMap, Handle, Span};
+use crate::{Arena, FastHashMap, FastIndexMap, Handle, Span, NamedExpression};
 
 mod construction;
 mod conversion;
@@ -993,14 +993,21 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
             .enumerate()
             .map(|(i, arg)| {
                 let ty = self.resolve_ast_type(arg.ty, ctx)?;
+                let mut span = arg.name.span.clone();
+                span.subsume(arg.ty_span);
+                
                 let expr = expressions
-                    .append(crate::Expression::FunctionArgument(i as u32), arg.name.span);
+                    .append(crate::Expression::FunctionArgument(i as u32), span);
+
                 local_table.insert(arg.handle, Typed::Plain(expr));
                 named_expressions.insert(expr, (arg.name.name.to_string(), arg.name.span));
+
+                eprintln!("Got func arg span {:?} {:?} {:?}", arg.name.name, arg.name.span, arg.ty_span); 
 
                 Ok(crate::FunctionArgument {
                     name: Some(arg.name.name.to_string()),
                     ty,
+                    ty_span: arg.ty_span,
                     binding: self.binding(&arg.binding, ty, ctx)?,
                 })
             })
@@ -1013,6 +1020,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                 let ty = self.resolve_ast_type(res.ty, ctx)?;
                 Ok(crate::FunctionResult {
                     ty,
+                    ty_span: res.ty_span,
                     binding: self.binding(&res.binding, ty, ctx)?,
                 })
             })
@@ -1047,7 +1055,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
         function.body = body;
         function.named_expressions = named_expressions
             .into_iter()
-            .map(|(key, (name, _))| (key, name))
+            .map(|(key, (name, span))| (key, NamedExpression { name, span }))
             .collect();
 
         if let Some(ref entry) = f.entry_point {
@@ -1211,6 +1219,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     let var = ctx.function.local_variables.append(
                         crate::LocalVariable {
                             name: Some(v.name.name.to_string()),
+                            span: v.name.span, 
                             ty,
                             init: const_initializer,
                         },

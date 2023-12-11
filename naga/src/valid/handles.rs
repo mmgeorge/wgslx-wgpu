@@ -113,20 +113,16 @@ impl super::Validator {
             } = function;
 
             for arg in arguments.iter() {
-                let &crate::FunctionArgument {
-                    name: _,
-                    ty,
-                    binding: _,
-                } = arg;
+                let &crate::FunctionArgument { ty, .. } = arg;
                 validate_type(ty)?;
             }
 
-            if let &Some(crate::FunctionResult { ty, binding: _ }) = result {
+            if let &Some(crate::FunctionResult { ty, .. }) = result {
                 validate_type(ty)?;
             }
 
             for (_handle, local_variable) in local_variables.iter() {
-                let &crate::LocalVariable { name: _, ty, init } = local_variable;
+                let &crate::LocalVariable { ty, init, .. } = local_variable;
                 validate_type(ty)?;
                 if let Some(init) = init {
                     Self::validate_expression_handle(init, expressions)?;

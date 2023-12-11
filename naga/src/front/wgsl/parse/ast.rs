@@ -135,6 +135,7 @@ pub enum GlobalDeclKind<'a> {
 pub struct FunctionArgument<'a> {
     pub name: Ident<'a>,
     pub ty: Handle<Type<'a>>,
+    pub ty_span: Span, 
     pub binding: Option<Binding<'a>>,
     pub handle: Handle<Local>,
 }
@@ -142,6 +143,7 @@ pub struct FunctionArgument<'a> {
 #[derive(Debug)]
 pub struct FunctionResult<'a> {
     pub ty: Handle<Type<'a>>,
+    pub ty_span: Span,
     pub binding: Option<Binding<'a>>,
 }
 

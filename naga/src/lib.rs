@@ -320,8 +320,27 @@ pub type FastIndexSet<K> =
 pub type FastIndexMap<K, V> =
     indexmap::IndexMap<K, V, std::hash::BuildHasherDefault<rustc_hash::FxHasher>>;
 
+#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "deserialize", derive(Deserialize))]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
+#[cfg_attr(feature = "clone", derive(Clone))]
+#[derive(Debug)]
+pub struct NamedExpression {
+    pub name: String,
+    pub span: Span
+}
+
+impl NamedExpression {
+    pub fn from_name(name: String) -> Self {
+        Self {
+            name,
+            span: Span::UNDEFINED,
+        }
+    }
+}
+
 /// Map of expressions that have associated variable names
-pub(crate) type NamedExpressions = FastIndexMap<Handle<Expression>, String>;
+pub(crate) type NamedExpressions = FastIndexMap<Handle<Expression>, NamedExpression>;
 
 /// Early fragment tests.
 ///
@@ -1002,6 +1021,10 @@ pub struct GlobalVariable {
 pub struct LocalVariable {
     /// Name of the variable, if any.
     pub name: Option<String>,
+
+    /// Span associated with the variable
+    pub span: Span, 
+    
     /// The type of this variable.
     pub ty: Handle<Type>,
     /// Initial value for this variable.
@@ -1877,6 +1900,8 @@ pub struct FunctionArgument {
     pub name: Option<String>,
     /// Type of the argument.
     pub ty: Handle<Type>,
+    /// Span of the type's ident.
+    pub ty_span: Span,
     /// For entry points, an argument has to have a binding
     /// unless it's a structure.
     pub binding: Option<Binding>,
@@ -1890,6 +1915,8 @@ pub struct FunctionArgument {
 pub struct FunctionResult {
     /// Type of the result.
     pub ty: Handle<Type>,
+    /// Span of the type's ident
+    pub ty_span: Span,
     /// For entry points, the result has to have a binding
     /// unless it's a structure.
     pub binding: Option<Binding>,

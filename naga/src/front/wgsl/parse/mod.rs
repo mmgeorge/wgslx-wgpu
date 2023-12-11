@@ -499,7 +499,7 @@ impl Parser {
             }
             (Token::Paren('<'), ast::ConstructorType::PartialArray) => {
                 lexer.expect_generic_paren('<')?;
-                let base = self.type_decl(lexer, ctx)?;
+                let base = self.type_decl(lexer, ctx)?.0;
                 let size = if lexer.skip(Token::Separator(',')) {
                     let expr = self.unary_expression(lexer, ctx)?;
                     ast::ArraySize::Constant(expr)
@@ -553,7 +553,7 @@ impl Parser {
             "bitcast" => {
                 lexer.expect_generic_paren('<')?;
                 let start = lexer.start_byte_offset();
-                let to = self.type_decl(lexer, ctx)?;
+                let to = self.type_decl(lexer, ctx)?.0;
                 let span = lexer.span_from(start);
                 lexer.expect_generic_paren('>')?;
 
@@ -962,7 +962,7 @@ impl Parser {
         }
         let name = lexer.next_ident()?;
         lexer.expect(Token::Separator(':'))?;
-        let ty = self.type_decl(lexer, ctx)?;
+        let ty = self.type_decl(lexer, ctx)?.0;
 
         let init = if lexer.skip(Token::Operation('=')) {
             let handle = self.general_expression(lexer, ctx)?;
@@ -1024,7 +1024,7 @@ impl Parser {
 
             let name = lexer.next_ident()?;
             lexer.expect(Token::Separator(':'))?;
-            let ty = self.type_decl(lexer, ctx)?;
+            let ty = self.type_decl(lexer, ctx)?.0;
             ready = lexer.skip(Token::Separator(','));
 
             members.push(ast::StructMember {
@@ -1223,7 +1223,7 @@ impl Parser {
                 let (ident, span) = lexer.next_ident_with_span()?;
                 let mut space = conv::map_address_space(ident, span)?;
                 lexer.expect(Token::Separator(','))?;
-                let base = self.type_decl(lexer, ctx)?;
+                let base = self.type_decl(lexer, ctx)?.0;
                 if let crate::AddressSpace::Storage { ref mut access } = space {
                     *access = if lexer.skip(Token::Separator(',')) {
                         lexer.next_storage_access()?
@@ -1236,7 +1236,7 @@ impl Parser {
             }
             "array" => {
                 lexer.expect_generic_paren('<')?;
-                let base = self.type_decl(lexer, ctx)?;
+                let base = self.type_decl(lexer, ctx)?.0;
                 let size = if lexer.skip(Token::Separator(',')) {
                     let size = self.unary_expression(lexer, ctx)?;
                     ast::ArraySize::Constant(size)
@@ -1249,7 +1249,7 @@ impl Parser {
             }
             "binding_array" => {
                 lexer.expect_generic_paren('<')?;
-                let base = self.type_decl(lexer, ctx)?;
+                let base = self.type_decl(lexer, ctx)?.0;
                 let size = if lexer.skip(Token::Separator(',')) {
                     let size = self.unary_expression(lexer, ctx)?;
                     ast::ArraySize::Constant(size)
@@ -1456,11 +1456,13 @@ impl Parser {
     }
 
     /// Parse type declaration of a given name.
+    ///
+    /// Returns the span of the type ident, not the underlying global type
     fn type_decl<'a>(
         &mut self,
         lexer: &mut Lexer<'a>,
         ctx: &mut ExpressionContext<'a, '_, '_>,
-    ) -> Result<Handle<ast::Type<'a>>, Error<'a>> {
+    ) -> Result<(Handle<ast::Type<'a>>, Span), Error<'a>> {
         self.push_rule_span(Rule::TypeDecl, lexer);
 
         let (name, span) = lexer.next_ident_with_span()?;
@@ -1479,7 +1481,7 @@ impl Parser {
         self.pop_rule_span(lexer);
 
         let handle = ctx.types.append(ty, Span::UNDEFINED);
-        Ok(handle)
+        Ok((handle, span))
     }
 
     fn assignment_op_and_rhs<'a>(
@@ -1653,7 +1655,7 @@ impl Parser {
                         let name = lexer.next_ident()?;
 
                         let given_ty = if lexer.skip(Token::Separator(':')) {
-                            let ty = self.type_decl(lexer, ctx)?;
+                            let ty = self.type_decl(lexer, ctx)?.0;
                             Some(ty)
                         } else {
                             None
@@ -1675,7 +1677,7 @@ impl Parser {
 
                         let name = lexer.next_ident()?;
                         let ty = if lexer.skip(Token::Separator(':')) {
-                            let ty = self.type_decl(lexer, ctx)?;
+                            let ty = self.type_decl(lexer, ctx)?.0;
                             Some(ty)
                         } else {
                             None
@@ -2115,12 +2117,13 @@ impl Parser {
             let param_name = lexer.next_ident()?;
 
             lexer.expect(Token::Separator(':'))?;
-            let param_type = self.type_decl(lexer, &mut ctx)?;
 
+            let (ty, ty_span) = self.type_decl(lexer, &mut ctx)?;
             let handle = ctx.declare_local(param_name)?;
             arguments.push(ast::FunctionArgument {
                 name: param_name,
-                ty: param_type,
+                ty,
+                ty_span,
                 binding,
                 handle,
             });
@@ -2129,8 +2132,8 @@ impl Parser {
         // read return type
         let result = if lexer.skip(Token::Arrow) && !lexer.skip(Token::Word("void")) {
             let binding = self.varying_binding(lexer, &mut ctx)?;
-            let ty = self.type_decl(lexer, &mut ctx)?;
-            Some(ast::FunctionResult { ty, binding })
+            let (ty, ty_span) = self.type_decl(lexer, &mut ctx)?;
+            Some(ast::FunctionResult { ty, ty_span, binding })
         } else {
             None
         };
@@ -2271,7 +2274,7 @@ impl Parser {
                 let name = lexer.next_ident()?;
 
                 lexer.expect(Token::Operation('='))?;
-                let ty = self.type_decl(lexer, &mut ctx)?;
+                let ty = self.type_decl(lexer, &mut ctx)?.0;
                 lexer.expect(Token::Separator(';'))?;
                 Some(ast::GlobalDeclKind::Type(ast::TypeAlias { name, ty }))
             }
@@ -2279,7 +2282,7 @@ impl Parser {
                 let name = lexer.next_ident()?;
 
                 let ty = if lexer.skip(Token::Separator(':')) {
-                    let ty = self.type_decl(lexer, &mut ctx)?;
+                    let ty = self.type_decl(lexer, &mut ctx)?.0;
                     Some(ty)
                 } else {
                     None
