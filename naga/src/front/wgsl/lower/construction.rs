@@ -321,7 +321,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     })?;
                 ctx.convert_slice_to_common_scalar(&mut components, consensus_scalar)?;
                 let inner = consensus_scalar.to_inner_vector(size);
-                let ty = ctx.ensure_type_exists(inner);
+                let ty = ctx.ensure_type_exists(inner, Span::UNDEFINED);
                 expr = crate::Expression::Compose { ty, components };
             }
 
@@ -351,7 +351,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     .automatic_conversion_combine(crate::Scalar::ABSTRACT_FLOAT)
                     .unwrap_or(consensus_scalar);
                 ctx.convert_slice_to_common_scalar(&mut components, consensus_scalar)?;
-                let vec_ty = ctx.ensure_type_exists(consensus_scalar.to_inner_vector(rows));
+                let vec_ty = ctx.ensure_type_exists(consensus_scalar.to_inner_vector(rows), Span::UNDEFINED);
 
                 let components = components
                     .chunks(rows as usize)
@@ -370,7 +370,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     columns,
                     rows,
                     scalar: consensus_scalar,
-                });
+                }, Span::UNDEFINED);
                 expr = crate::Expression::Compose { ty, components };
             }
 
@@ -388,7 +388,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
             ) if components.len() == columns as usize * rows as usize => {
                 let element = Tr::Value(crate::TypeInner::Scalar(scalar));
                 ctx.try_automatic_conversions_slice(&mut components, &element, ty_span)?;
-                let vec_ty = ctx.ensure_type_exists(scalar.to_inner_vector(rows));
+                let vec_ty = ctx.ensure_type_exists(scalar.to_inner_vector(rows), Span::UNDEFINED);
 
                 let components = components
                     .chunks(rows as usize)
@@ -407,7 +407,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     columns,
                     rows,
                     scalar,
-                });
+                }, Span::UNDEFINED);
                 expr = crate::Expression::Compose { ty, components };
             }
 
@@ -428,7 +428,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     columns,
                     rows,
                     scalar: consensus_scalar,
-                });
+                }, Span::UNDEFINED);
                 expr = crate::Expression::Compose { ty, components };
             }
 
@@ -489,7 +489,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                         self.layouter[base].to_stride()
                     },
                 };
-                let ty = ctx.ensure_type_exists(inner);
+                let ty = ctx.ensure_type_exists(inner, Span::UNDEFINED);
 
                 expr = crate::Expression::Compose { ty, components };
             }
@@ -569,12 +569,12 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
     ) -> Result<Constructor<Handle<crate::Type>>, Error<'source>> {
         let handle = match *constructor {
             ast::ConstructorType::Scalar(scalar) => {
-                let ty = ctx.ensure_type_exists(scalar.to_inner_scalar());
+                let ty = ctx.ensure_type_exists(scalar.to_inner_scalar(), Span::UNDEFINED);
                 Constructor::Type(ty)
             }
             ast::ConstructorType::PartialVector { size } => Constructor::PartialVector { size },
             ast::ConstructorType::Vector { size, scalar } => {
-                let ty = ctx.ensure_type_exists(scalar.to_inner_vector(size));
+                let ty = ctx.ensure_type_exists(scalar.to_inner_vector(size), Span::UNDEFINED);
                 Constructor::Type(ty)
             }
             ast::ConstructorType::PartialMatrix { columns, rows } => {
@@ -589,7 +589,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     columns,
                     rows,
                     scalar: crate::Scalar::float(width),
-                });
+                }, Span::UNDEFINED);
                 Constructor::Type(ty)
             }
             ast::ConstructorType::PartialArray => Constructor::PartialArray,
@@ -600,7 +600,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                 self.layouter.update(ctx.module.to_ctx()).unwrap();
                 let stride = self.layouter[base].to_stride();
 
-                let ty = ctx.ensure_type_exists(crate::TypeInner::Array { base, size, stride });
+                let ty = ctx.ensure_type_exists(crate::TypeInner::Array { base, size, stride }, Span::UNDEFINED);
                 Constructor::Type(ty)
             }
             ast::ConstructorType::Type(ty) => Constructor::Type(ty),
