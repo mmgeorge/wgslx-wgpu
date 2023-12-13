@@ -1379,7 +1379,7 @@ impl<W: Write> Writer<W> {
             .insert(&expr_handle as *const _ as *const ());
 
         if let Some(name) = self.named_expressions.get(&expr_handle) {
-            write!(self.out, "{name}")?;
+            write!(self.out, "{}", name.name)?;
             return Ok(());
         }
 
@@ -2669,7 +2669,7 @@ impl<W: Write> Writer<W> {
                             //
                             // Don't assume the names in `named_expressions` are unique,
                             // or even valid. Use the `Namer`.
-                            Some(self.namer.call(name))
+                            Some(self.namer.call(&name.name))
                         } else {
                             // If this expression is an index that we're going to first compare
                             // against a limit, and then actually use as an index, then we may
@@ -2692,7 +2692,7 @@ impl<W: Write> Writer<W> {
                             write!(self.out, "{level}")?;
                             self.start_baking_expression(handle, &context.expression, &name)?;
                             self.put_expression(handle, &context.expression, true)?;
-                            self.named_expressions.insert(handle, name);
+                            self.named_expressions.insert(handle, crate::NamedExpression::from_name(name));
                             writeln!(self.out, ";")?;
                         }
                     }
@@ -2839,7 +2839,7 @@ impl<W: Write> Writer<W> {
                     if let Some(expr) = result {
                         let name = format!("{}{}", back::BAKE_PREFIX, expr.index());
                         self.start_baking_expression(expr, &context.expression, &name)?;
-                        self.named_expressions.insert(expr, name);
+                        self.named_expressions.insert(expr, crate::NamedExpression::from_name(name));
                     }
                     let fun_name = &self.names[&NameKey::Function(function)];
                     write!(self.out, "{fun_name}(")?;
@@ -2889,7 +2889,7 @@ impl<W: Write> Writer<W> {
                     write!(self.out, "{level}")?;
                     let res_name = format!("{}{}", back::BAKE_PREFIX, result.index());
                     self.start_baking_expression(result, &context.expression, &res_name)?;
-                    self.named_expressions.insert(result, res_name);
+                    self.named_expressions.insert(result, crate::NamedExpression::from_name(res_name));
                     match *fun {
                         crate::AtomicFunction::Add => {
                             self.put_atomic_fetch(pointer, "add", value, &context.expression)?;
@@ -2937,7 +2937,7 @@ impl<W: Write> Writer<W> {
                     let name = self.namer.call("");
                     self.start_baking_expression(result, &context.expression, &name)?;
                     self.put_load(pointer, &context.expression, true)?;
-                    self.named_expressions.insert(result, name);
+                    self.named_expressions.insert(result, crate::NamedExpression::from_name(name));
 
                     writeln!(self.out, ";")?;
                     self.write_barrier(crate::Barrier::WORK_GROUP, level)?;
@@ -3024,7 +3024,7 @@ impl<W: Write> Writer<W> {
                             write!(self.out, "{level}")?;
                             let name = format!("{}{}", back::BAKE_PREFIX, result.index());
                             self.start_baking_expression(result, &context.expression, &name)?;
-                            self.named_expressions.insert(result, name);
+                            self.named_expressions.insert(result, crate::NamedExpression::from_name(name));
                             self.put_expression(query, &context.expression, true)?;
                             writeln!(self.out, ".{RAY_QUERY_FIELD_READY};")?;
                             //TODO: actually proceed?

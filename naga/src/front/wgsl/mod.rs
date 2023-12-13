@@ -104,7 +104,7 @@ fn parse_translation_unit<'a>(
                 continue; 
             }
 
-            let file_id = provider.visit(path.as_path())
+            let file_id = provider.visit(&path)
                 .ok_or(Error::BadPath { span })
                 .map_err(|x| x.as_parse_error(provider))?; 
 

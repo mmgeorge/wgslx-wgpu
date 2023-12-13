@@ -9,7 +9,7 @@ pub use codespan_reporting::files::*;
 pub type FileId = u32;
 
 pub trait SourceProvider<'a>: Files<'a> {
-    fn visit(&self, path: &Path) -> Option<FileId>;
+    fn visit(&self, path: impl AsRef<Path>) -> Option<FileId>;
     fn get(&self, id: FileId) -> Option<&File>;
 
 

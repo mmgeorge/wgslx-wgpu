@@ -249,7 +249,8 @@ impl FileProviderInner {
         }
     }
 
-    fn visit(&mut self, path: &Path) -> Option<FileId> {
+    fn visit(&mut self, path: impl AsRef<Path>) -> Option<FileId> {
+        let path = path.as_ref(); 
         let id_entry = self.paths.entry(path.to_path_buf())
             .or_insert_with(|| {
                 self.id_counter += 1;
@@ -280,7 +281,7 @@ impl FileProvider {
 
 
 impl SourceProvider<'_> for FileProvider {
-    fn visit(&self, path: &Path) -> Option<FileId> {
+    fn visit(&self, path: impl AsRef<Path>) -> Option<FileId> {
         // SAFETY: We never remove keys from the hashmap, nor remove them. All mutability
         // happens just for caching values
         unsafe {

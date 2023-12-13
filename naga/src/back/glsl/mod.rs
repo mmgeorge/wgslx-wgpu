@@ -48,7 +48,7 @@ pub use features::Features;
 use crate::{
     back,
     proc::{self, NameKey},
-    valid, Handle, ShaderStage, TypeInner,
+    valid, Handle, ShaderStage, TypeInner, NamedExpression,
 };
 use features::FeaturesManager;
 use std::{
@@ -1964,7 +1964,7 @@ impl<'a, W: Write> Writer<'a, W> {
                         // But we write them to step by step. We need to recache them
                         // Otherwise, we could accidentally write variable name instead of full expression.
                         // Also, we use sanitized names! It defense backend from generating variable with name from reserved keywords.
-                        Some(self.namer.call(name))
+                        Some(self.namer.call(&name.name))
                     } else if self.need_bake_expressions.contains(&handle) {
                         Some(format!("{}{}", back::BAKE_PREFIX, handle.index()))
                     } else {
@@ -2328,7 +2328,7 @@ impl<'a, W: Write> Writer<'a, W> {
                         self.write_array_size(base, size)?
                     }
                     write!(self.out, " = ")?;
-                    self.named_expressions.insert(expr, name);
+                    self.named_expressions.insert(expr, crate::NamedExpression::from_name(name));
                 }
                 write!(self.out, "{}(", &self.names[&NameKey::Function(function)])?;
                 let arguments: Vec<_> = arguments
@@ -2356,7 +2356,7 @@ impl<'a, W: Write> Writer<'a, W> {
                 let res_ty = ctx.resolve_type(result, &self.module.types);
                 self.write_value_type(res_ty)?;
                 write!(self.out, " {res_name} = ")?;
-                self.named_expressions.insert(result, res_name);
+              self.named_expressions.insert(result, NamedExpression::from_name(res_name));
 
                 let fun_str = fun.to_glsl();
                 write!(self.out, "atomic{fun_str}(")?;
@@ -2511,7 +2511,7 @@ impl<'a, W: Write> Writer<'a, W> {
         use crate::Expression;
 
         if let Some(name) = self.named_expressions.get(&expr) {
-            write!(self.out, "{name}")?;
+            write!(self.out, "{}", name.name)?;
             return Ok(());
         }
 
@@ -4058,7 +4058,7 @@ impl<'a, W: Write> Writer<'a, W> {
         write!(self.out, " = ")?;
         self.write_expr(handle, ctx)?;
         writeln!(self.out, ";")?;
-        self.named_expressions.insert(named, name);
+        self.named_expressions.insert(named, NamedExpression::from_name(name));
 
         Ok(())
     }

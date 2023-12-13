@@ -1327,7 +1327,7 @@ impl<'a, W: fmt::Write> super::Writer<'a, W> {
                         // But we write them to step by step. We need to recache them
                         // Otherwise, we could accidentally write variable name instead of full expression.
                         // Also, we use sanitized names! It defense backend from generating variable with name from reserved keywords.
-                        Some(self.namer.call(name))
+                        Some(self.namer.call(&name.name))
                     } else if self.need_bake_expressions.contains(&handle) {
                         Some(format!("_expr{}", handle.index()))
                     } else {
@@ -1819,7 +1819,7 @@ impl<'a, W: fmt::Write> super::Writer<'a, W> {
                         }
                     };
                     write!(self.out, " {name} = ")?;
-                    self.named_expressions.insert(expr, name);
+                    self.named_expressions.insert(expr, crate::NamedExpression::from_name(name));
                 }
                 let func_name = &self.names[&NameKey::Function(function)];
                 write!(self.out, "{func_name}(")?;
@@ -1890,7 +1890,7 @@ impl<'a, W: fmt::Write> super::Writer<'a, W> {
                 }
                 self.write_expr(module, value, func_ctx)?;
                 writeln!(self.out, ", {res_name});")?;
-                self.named_expressions.insert(result, res_name);
+                self.named_expressions.insert(result, crate::NamedExpression::from_name(res_name));
             }
             Statement::WorkGroupUniformLoad { pointer, result } => {
                 self.write_barrier(crate::Barrier::WORK_GROUP, level)?;
@@ -2136,7 +2136,7 @@ impl<'a, W: fmt::Write> super::Writer<'a, W> {
         };
 
         if let Some(name) = self.named_expressions.get(&expr) {
-            write!(self.out, "{name}{closing_bracket}")?;
+            write!(self.out, "{}{closing_bracket}", name.name)?;
             return Ok(());
         }
 
@@ -3202,7 +3202,7 @@ impl<'a, W: fmt::Write> super::Writer<'a, W> {
         write!(self.out, " = ")?;
         self.write_expr(module, handle, ctx)?;
         writeln!(self.out, ";")?;
-        self.named_expressions.insert(named, name);
+        self.named_expressions.insert(named, crate::NamedExpression::from_name(name));
 
         Ok(())
     }

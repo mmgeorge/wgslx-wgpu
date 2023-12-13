@@ -324,7 +324,7 @@ impl<'source> ParsingContext<'source> {
                             // This branch handles function definition and prototypes
                             self.bump(frontend)?;
 
-                            let result = ty.map(|ty| FunctionResult { ty, binding: None });
+                            let result = ty.map(|ty| FunctionResult { ty, binding: None, ty_span: Span::UNDEFINED });
 
                             let mut context = Context::new(frontend, ctx.module, false)?;
 

@@ -945,6 +945,7 @@ impl Frontend {
                     name: None,
                     ty,
                     init: None,
+                    span: Span::default(), 
                 },
                 Span::default(),
             );
@@ -1251,6 +1252,7 @@ impl Frontend {
                         name,
                         ty,
                         binding: Some(binding),
+                        ty_span: Span::UNDEFINED
                     });
 
                     let value = ctx
@@ -1356,7 +1358,7 @@ impl Frontend {
                 arguments,
                 expressions,
                 body,
-                result: ty.map(|ty| FunctionResult { ty, binding: None }),
+                result: ty.map(|ty| FunctionResult { ty, binding: None, ty_span: Span::UNDEFINED }),
                 ..Default::default()
             },
         });

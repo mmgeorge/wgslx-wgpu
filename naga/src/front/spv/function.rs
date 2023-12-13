@@ -1,6 +1,6 @@
 use crate::{
     arena::{Arena, Handle},
-    front::spv::{BlockContext, BodyIndex},
+    front::spv::{BlockContext, BodyIndex}, Span,
 };
 
 use super::{Error, Instruction, LookupExpression, LookupHelper as _};
@@ -56,6 +56,7 @@ impl<I: Iterator<Item = u32>> super::Frontend<I> {
                     Some(crate::FunctionResult {
                         ty: lookup_result_ty.handle,
                         binding: None,
+                        ty_span: Span::UNDEFINED,
                     })
                 },
                 local_variables: Arena::new(),
@@ -107,6 +108,7 @@ impl<I: Iterator<Item = u32>> super::Frontend<I> {
                         name: decor.name,
                         ty,
                         binding: None,
+                        ty_span: Span::UNDEFINED,
                     });
                 }
                 Instruction { op, .. } => return Err(Error::InvalidParameter(op)),
@@ -228,6 +230,7 @@ impl<I: Iterator<Item = u32>> super::Frontend<I> {
                             name: None,
                             ty,
                             init: None,
+                            span: Span::default()
                         },
                         crate::Span::default(),
                     );
@@ -525,6 +528,7 @@ impl<I: Iterator<Item = u32>> super::Frontend<I> {
                     function.result = Some(crate::FunctionResult {
                         ty: member.ty,
                         binding: member.binding.clone(),
+                        ty_span: crate::Span::UNDEFINED, 
                     });
                 }
                 _ => {
@@ -551,7 +555,7 @@ impl<I: Iterator<Item = u32>> super::Frontend<I> {
                         },
                         span,
                     );
-                    function.result = Some(crate::FunctionResult { ty, binding: None });
+                    function.result = Some(crate::FunctionResult { ty, binding: None, ty_span: crate::Span::UNDEFINED });
                 }
             }
 
