@@ -153,7 +153,7 @@ pub struct StatementContext<'source, 'temp, 'out> {
     function: &'out mut crate::Function,
     /// Stores the names of expressions that are assigned in `let` statement
     /// Also stores the spans of the names, for use in errors.
-    named_expressions: &'out mut FastIndexMap<Handle<crate::Expression>, (String, Span)>,
+    named_expressions: &'out mut FastIndexMap<Handle<crate::Expression>, (String, Span, Handle<crate::Type>)>,
     module: &'out mut crate::Module,
 
     /// Which `Expression`s in `self.naga_expressions` are const expressions, in
@@ -205,7 +205,7 @@ impl<'a, 'temp> StatementContext<'a, 'temp, '_> {
     }
 
     fn invalid_assignment_type(&self, expr: Handle<crate::Expression>) -> InvalidAssignmentType {
-        if let Some(&(_, span)) = self.named_expressions.get(&expr) {
+        if let Some(&(_, span, _)) = self.named_expressions.get(&expr) {
             InvalidAssignmentType::ImmutableBinding(span)
         } else {
             match self.function.expressions[expr] {
@@ -1002,7 +1002,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     .append(crate::Expression::FunctionArgument(i as u32), span);
 
                 local_table.insert(arg.handle, Typed::Plain(expr));
-                named_expressions.insert(expr, (arg.name.name.to_string(), arg.name.span));
+                named_expressions.insert(expr, (arg.name.name.to_string(), arg.name.span, ty));
 
                 eprintln!("Got func arg span {:?} {:?} {:?}", arg.name.name, arg.name.span, arg.ty_span); 
 
@@ -1057,7 +1057,9 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
         function.body = body;
         function.named_expressions = named_expressions
             .into_iter()
-            .map(|(key, (name, span))| (key, NamedExpression { name, span }))
+            .map(|(expr, (name, span, ty))| {
+                (expr, NamedExpression { name, span, ty: Some(ty) })
+            })
             .collect();
 
         if let Some(ref entry) = f.entry_point {
@@ -1134,14 +1136,15 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                         l.ty.map(|ty| self.resolve_ast_type(ty, &mut ctx.as_global()))
                             .transpose()?;
 
+                    let mut ectx = ctx.as_expression(block, &mut emitter);
+                    let init_ty = ectx.register_type(value)?;
+                    
                     if let Some(ty) = explicit_ty {
-                        let mut ctx = ctx.as_expression(block, &mut emitter);
-                        let init_ty = ctx.register_type(value)?;
-                        if !ctx.module.types[ty]
+                        if !ectx.module.types[ty]
                             .inner
-                            .equivalent(&ctx.module.types[init_ty].inner, &ctx.module.types)
+                            .equivalent(&ectx.module.types[init_ty].inner, &ectx.module.types)
                         {
-                            let gctx = &ctx.module.to_ctx();
+                            let gctx = &ectx.module.to_ctx();
                             return Err(Error::InitializationTypeMismatch {
                                 name: l.name.span,
                                 expected: ty.to_wgsl(gctx),
@@ -1153,7 +1156,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     block.extend(emitter.finish(&ctx.function.expressions));
                     ctx.local_table.insert(l.handle, Typed::Plain(value));
                     ctx.named_expressions
-                        .insert(value, (l.name.name.to_string(), l.name.span));
+                        .insert(value, (l.name.name.to_string(), l.name.span, init_ty));
 
                     return Ok(());
                 }

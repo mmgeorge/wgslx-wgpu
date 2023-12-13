@@ -327,7 +327,8 @@ pub type FastIndexMap<K, V> =
 #[derive(Debug)]
 pub struct NamedExpression {
     pub name: String,
-    pub span: Span
+    pub span: Span,
+    pub ty: Option<Handle<Type>>
 }
 
 impl NamedExpression {
@@ -335,6 +336,7 @@ impl NamedExpression {
         Self {
             name,
             span: Span::UNDEFINED,
+            ty: None
         }
     }
 }
