@@ -92,6 +92,14 @@ impl FunctionMap {
             }
         });
 
+        // Adjust named uses to use new expression handles
+        for (_, named_use) in function.named_uses.iter_mut() {
+            let new_handle = self.expressions.try_adjust(named_use.expression)
+                .expect("InternalError: Unable to adjust handle for named_use");
+
+            (*named_use).expression = new_handle; 
+        }
+
         // Adjust named expressions.
         for (mut handle, name) in function.named_expressions.drain(..) {
             self.expressions.adjust(&mut handle);

@@ -974,7 +974,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
         // Constant evaluation may leave abstract-typed literals and
         // compositions in expression arenas, so we need to compact the module
         // to remove unused expressions and types.
-        // crate::compact::compact(&mut module);
+        crate::compact::compact(&mut module);
 
         Ok(module)
     }
