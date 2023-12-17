@@ -8,7 +8,7 @@ use crate::front::Typifier;
 use crate::proc::{
     ensure_block_returns, Alignment, ConstantEvaluator, Emitter, Layouter, ResolveContext,
 };
-use crate::{Arena, FastHashMap, FastIndexMap, Handle, Span, NamedExpression};
+use crate::{Arena, FastHashMap, FastIndexMap, Handle, Span, NamedExpression, NamedExpressionUse};
 
 mod construction;
 mod conversion;
@@ -631,19 +631,19 @@ impl<'source, 'temp, 'out> ExpressionContext<'source, 'temp, 'out> {
         &mut self,
         expr: Typed<Handle<crate::Expression>>,
         expr_span: Option<Span>,
-) -> Result<Handle<crate::Expression>, Error<'source>> {
+    ) -> Result<Handle<crate::Expression>, Error<'source>> {
         match expr {
-          Typed::Reference(pointer) => {
-              let load = crate::Expression::Load { pointer };
-              // MG: Workaround - Seems like the expression we are referencing here might not
-              // yet have had it's span added?
-              //
-              // TODO: Better fix?
-              let span = expr_span.unwrap_or_else(|| self.get_expression_span(pointer));
+            Typed::Reference(pointer) => {
+                let load = crate::Expression::Load { pointer };
+                // MG: Workaround - Seems like the expression we are referencing here might not
+                // yet have had it's span added?
+                //
+                // TODO: Better fix?
+                let span = expr_span.unwrap_or_else(|| self.get_expression_span(pointer));
 
-              self.append_expression(load, span)
+                self.append_expression(load, span)
             }
-            Typed::Plain(handle) => Ok(handle),
+            Typed::Plain(handle) => Ok(handle)
         }
     }
 
@@ -974,7 +974,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
         // Constant evaluation may leave abstract-typed literals and
         // compositions in expression arenas, so we need to compact the module
         // to remove unused expressions and types.
-        crate::compact::compact(&mut module);
+        // crate::compact::compact(&mut module);
 
         Ok(module)
     }
@@ -1036,6 +1036,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
             expressions,
             named_expressions: crate::NamedExpressions::default(),
             body: crate::Block::default(),
+            named_uses: Arena::new()
         };
 
         let mut typifier = Typifier::default();
@@ -1052,7 +1053,9 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
             expression_constness: &mut crate::proc::ExpressionConstnessTracker::new(),
         };
         let mut body = self.block(&f.body, false, &mut stmt_ctx)?;
-        ensure_block_returns(&mut body);
+      ensure_block_returns(&mut body);
+
+      eprintln!("Got fn {:#?}", function); 
 
         function.body = body;
         function.named_expressions = named_expressions
@@ -1085,6 +1088,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
             });
             Ok(LoweredGlobalDecl::EntryPoint)
         } else {
+          eprintln!("Added func {:#?}", function); 
             let handle = ctx.module.functions.append(function, span);
             Ok(LoweredGlobalDecl::Function(handle))
         }
@@ -1157,6 +1161,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     ctx.local_table.insert(l.handle, Typed::Plain(value));
                     ctx.named_expressions
                         .insert(value, (l.name.name.to_string(), l.name.span, init_ty));
+                    eprintln!("Add named expr {} contextfn: {:#?}", l.name.name, ctx.function);
 
                     return Ok(());
                 }
@@ -1224,11 +1229,10 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     let var = ctx.function.local_variables.append(
                         crate::LocalVariable {
                             name: Some(v.name.name.to_string()),
-                            span: v.name.span, 
                             ty,
                             init: const_initializer,
                         },
-                        stmt.span,
+                        v.name.span,
                     );
 
                     let handle = ctx.as_expression(block, &mut emitter).interrupt_emitter(
@@ -1517,7 +1521,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
         expr: Handle<ast::Expression<'source>>,
         ctx: &mut ExpressionContext<'source, '_, '_>,
     ) -> Result<Typed<Handle<crate::Expression>>, Error<'source>> {
-        let span = ctx.ast_expressions.get_span(expr);
+        let mut span = ctx.ast_expressions.get_span(expr);
         let expr = &ctx.ast_expressions[expr];
 
         let expr: Typed<crate::Expression> = match *expr {
@@ -1538,6 +1542,17 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
             }
             ast::Expression::Ident(ast::IdentExpr::Local(local)) => {
                 let rctx = ctx.runtime_expression_ctx(span)?;
+                match rctx.local_table[&local] {
+                    Typed::Plain(val) => {
+                        let expr = &rctx.function.expressions[val];
+                        let expr2 = &rctx.function.named_expressions.get(&val);
+
+                        rctx.function.named_uses.append(NamedExpressionUse { expression: val }, span);
+                        
+                        eprintln!("Resolve plain {:?} {:#?} {:#?} {:#?}", val, expr, expr2, rctx.function); 
+                    }
+                    Typed::Reference(_) => {}
+                }; 
                 return Ok(rctx.local_table[&local]);
             }
             ast::Expression::Ident(ast::IdentExpr::Unresolved(name)) => {
@@ -1704,6 +1719,8 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     _ => return Err(Error::BadAccessor(field.span)),
                 };
 
+                // Update the expression's span to be that of the actual field
+                span = field.span; 
                 access
             }
             ast::Expression::Bitcast { expr, to, ty_span } => {
@@ -2508,6 +2525,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                 ty,
                 binding,
                 offset,
+                span: member.name.span
             });
 
             offset += member_size;

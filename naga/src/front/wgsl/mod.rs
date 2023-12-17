@@ -113,5 +113,7 @@ fn parse_translation_unit<'a>(
         }
     }
 
+    eprintln!("TU: {:#?}", translation_unit); 
+
     Ok(translation_unit)
 }

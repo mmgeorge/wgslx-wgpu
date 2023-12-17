@@ -104,6 +104,7 @@ impl super::Validator {
         let validate_function = |function_handle, function: &_| -> Result<_, InvalidHandleError> {
             let &crate::Function {
                 name: _,
+                named_uses: _,
                 ref arguments,
                 ref result,
                 ref local_variables,

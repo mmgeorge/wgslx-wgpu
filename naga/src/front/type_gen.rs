@@ -60,36 +60,42 @@ impl crate::Module {
                             ty: ty_flag,
                             binding: None,
                             offset: 0,
+                            span: Span::UNDEFINED
                         },
                         crate::StructMember {
                             name: Some("cull_mask".to_string()),
                             ty: ty_flag,
                             binding: None,
                             offset: 4,
+                            span: Span::UNDEFINED
                         },
                         crate::StructMember {
                             name: Some("tmin".to_string()),
                             ty: ty_scalar,
                             binding: None,
                             offset: 8,
+                            span: Span::UNDEFINED
                         },
                         crate::StructMember {
                             name: Some("tmax".to_string()),
                             ty: ty_scalar,
                             binding: None,
                             offset: 12,
+                            span: Span::UNDEFINED
                         },
                         crate::StructMember {
                             name: Some("origin".to_string()),
                             ty: ty_vector,
                             binding: None,
                             offset: 16,
+                            span: Span::UNDEFINED
                         },
                         crate::StructMember {
                             name: Some("dir".to_string()),
                             ty: ty_vector,
                             binding: None,
                             offset: 32,
+                            span: Span::UNDEFINED
                         },
                     ],
                     span: 48,
@@ -172,66 +178,77 @@ impl crate::Module {
                             ty: ty_flag,
                             binding: None,
                             offset: 0,
+                            span: Span::UNDEFINED
                         },
                         crate::StructMember {
                             name: Some("t".to_string()),
                             ty: ty_scalar,
                             binding: None,
                             offset: 4,
+                            span: Span::UNDEFINED
                         },
                         crate::StructMember {
                             name: Some("instance_custom_index".to_string()),
                             ty: ty_flag,
                             binding: None,
                             offset: 8,
+                            span: Span::UNDEFINED
                         },
                         crate::StructMember {
                             name: Some("instance_id".to_string()),
                             ty: ty_flag,
                             binding: None,
                             offset: 12,
+                            span: Span::UNDEFINED
                         },
                         crate::StructMember {
                             name: Some("sbt_record_offset".to_string()),
                             ty: ty_flag,
                             binding: None,
                             offset: 16,
+                            span: Span::UNDEFINED
                         },
                         crate::StructMember {
                             name: Some("geometry_index".to_string()),
                             ty: ty_flag,
                             binding: None,
                             offset: 20,
+                            span: Span::UNDEFINED
                         },
                         crate::StructMember {
                             name: Some("primitive_index".to_string()),
                             ty: ty_flag,
                             binding: None,
                             offset: 24,
+                            span: Span::UNDEFINED
                         },
                         crate::StructMember {
                             name: Some("barycentrics".to_string()),
                             ty: ty_barycentrics,
                             binding: None,
                             offset: 28,
+                            span: Span::UNDEFINED
                         },
                         crate::StructMember {
                             name: Some("front_face".to_string()),
                             ty: ty_bool,
                             binding: None,
                             offset: 36,
+                            span: Span::UNDEFINED
                         },
                         crate::StructMember {
                             name: Some("object_to_world".to_string()),
                             ty: ty_transform,
                             binding: None,
                             offset: 48,
+                            span: Span::UNDEFINED
                         },
                         crate::StructMember {
                             name: Some("world_to_object".to_string()),
                             ty: ty_transform,
                             binding: None,
                             offset: 112,
+                            span: Span::UNDEFINED
                         },
                     ],
                     span: 176,
@@ -286,12 +303,14 @@ impl crate::Module {
                                 ty: scalar_ty,
                                 binding: None,
                                 offset: 0,
+                                span: Span::UNDEFINED
                             },
                             crate::StructMember {
                                 name: Some("exchanged".to_string()),
                                 ty: bool_ty,
                                 binding: None,
                                 offset: 4,
+                                span: Span::UNDEFINED
                             },
                         ],
                         span: 8,
@@ -338,12 +357,14 @@ impl crate::Module {
                                 ty: member_ty,
                                 binding: None,
                                 offset: 0,
+                                span: Span::UNDEFINED
                             },
                             crate::StructMember {
                                 name: Some("whole".to_string()),
                                 ty: member_ty,
                                 binding: None,
                                 offset: second_offset,
+                                span: Span::UNDEFINED
                             },
                         ],
                         span: second_offset * 2,
@@ -414,12 +435,14 @@ impl crate::Module {
                                 ty: fract_member_ty,
                                 binding: None,
                                 offset: 0,
+                                span: Span::UNDEFINED
                             },
                             crate::StructMember {
                                 name: Some("exp".to_string()),
                                 ty: exp_member_ty,
                                 binding: None,
                                 offset: second_offset,
+                                span: Span::UNDEFINED
                             },
                         ],
                         span: second_offset * 2,

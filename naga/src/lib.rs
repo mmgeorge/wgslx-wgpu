@@ -584,6 +584,8 @@ pub struct StructMember {
     pub binding: Option<Binding>,
     /// Offset from the beginning from the struct.
     pub offset: u32,
+    /// Span associated with the field
+    pub span: Span,
 }
 
 /// The number of dimensions an image has.
@@ -1024,9 +1026,6 @@ pub struct LocalVariable {
     /// Name of the variable, if any.
     pub name: Option<String>,
 
-    /// Span associated with the variable
-    pub span: Span, 
-    
     /// The type of this variable.
     pub ty: Handle<Type>,
     /// Initial value for this variable.
@@ -1924,6 +1923,15 @@ pub struct FunctionResult {
     pub binding: Option<Binding>,
 }
 
+#[derive(Debug)]
+#[cfg_attr(feature = "clone", derive(Clone))]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "deserialize", derive(Deserialize))]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
+pub struct NamedExpressionUse {
+    pub expression: Handle<Expression>,
+}
+
 /// A function defined in the module.
 #[derive(Debug, Default)]
 #[cfg_attr(feature = "clone", derive(Clone))]
@@ -1944,6 +1952,8 @@ pub struct Function {
     /// An `Expression` must occur before all other `Expression`s that use its
     /// value.
     pub expressions: Arena<Expression>,
+    /// Plain uses of named expression
+    pub named_uses: Arena<NamedExpressionUse>,
     /// Map of expressions that have associated variable names
     pub named_expressions: NamedExpressions,
     /// Block of instructions comprising the body of the function.
