@@ -623,7 +623,6 @@ impl Frontend {
                 name: decl.name.clone(),
                 ty: decl.ty,
                 init: decl.init,
-                span: Span::UNDEFINED
             },
             decl.meta,
         );

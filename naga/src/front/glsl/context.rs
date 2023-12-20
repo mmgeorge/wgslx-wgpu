@@ -359,7 +359,6 @@ impl<'a> Context<'a> {
                         name: Some(name.clone()),
                         ty,
                         init: None,
-                        span: Span::UNDEFINED
                     },
                     meta,
                 );
@@ -1022,7 +1021,6 @@ impl<'a> Context<'a> {
                                     name: None,
                                     ty,
                                     init: Some(init),
-                                    span: Span::default()
                                 },
                                 Span::default(),
                             );
@@ -1134,7 +1132,6 @@ impl<'a> Context<'a> {
                         name: None,
                         ty,
                         init: None,
-                        span: meta, 
                     },
                     meta,
                 );

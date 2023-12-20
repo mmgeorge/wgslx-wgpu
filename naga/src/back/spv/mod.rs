@@ -1,3 +1,4 @@
+
 /*!
 Backend for [SPIR-V][spv] (Standard Portable Intermediate Representation).
 
@@ -32,6 +33,7 @@ struct PhysicalLayout {
     bound: Word,
     instruction_schema: Word,
 }
+
 
 #[derive(Default)]
 struct LogicalLayout {

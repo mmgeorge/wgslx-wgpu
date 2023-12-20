@@ -10,7 +10,7 @@ use crate::{
     arena::{Handle, UniqueArena},
     back::spv::BindingInfo,
     proc::{Alignment, TypeResolution},
-    valid::{FunctionInfo, ModuleInfo},
+    valid::{FunctionInfo, ModuleInfo}, Span,
 };
 use spirv::Word;
 use std::collections::hash_map::Entry;
@@ -1695,6 +1695,7 @@ impl Writer {
                 ty: global_variable.ty,
                 binding: None,
                 offset: 0,
+                span: Span::UNDEFINED
             };
             self.decorate_struct_member(wrapper_type_id, 0, &member, &ir_module.types)?;
 

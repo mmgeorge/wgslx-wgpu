@@ -64,6 +64,7 @@ impl<I: Iterator<Item = u32>> super::Frontend<I> {
                     .make_expression_storage(&module.global_variables, &module.constants),
                 named_expressions: crate::NamedExpressions::default(),
                 body: crate::Block::new(),
+                named_uses: Arena::new()
             }
         };
 
@@ -230,7 +231,6 @@ impl<I: Iterator<Item = u32>> super::Frontend<I> {
                             name: None,
                             ty,
                             init: None,
-                            span: Span::default()
                         },
                         crate::Span::default(),
                     );
@@ -304,6 +304,7 @@ impl<I: Iterator<Item = u32>> super::Frontend<I> {
                 expressions: Arena::new(),
                 named_expressions: crate::NamedExpressions::default(),
                 body: crate::Block::new(),
+                named_uses: Arena::new()
             };
 
             // 1. copy the inputs from arguments to privates
@@ -453,6 +454,7 @@ impl<I: Iterator<Item = u32>> super::Frontend<I> {
                                 ty: result.ty,
                                 binding,
                                 offset: 0,
+                                span: Span::UNDEFINED
                             });
                             // populate just the globals first, then do `Load` in a
                             // separate step, so that we can get a range.

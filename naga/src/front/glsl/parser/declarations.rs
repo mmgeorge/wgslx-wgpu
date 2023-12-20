@@ -654,6 +654,7 @@ impl<'source> ParsingContext<'source> {
                     ty: info.ty,
                     binding: None,
                     offset: span,
+                    span: Span::UNDEFINED
                 });
 
                 span += info.span;

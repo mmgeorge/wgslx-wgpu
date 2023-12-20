@@ -945,7 +945,6 @@ impl Frontend {
                     name: None,
                     ty,
                     init: None,
-                    span: Span::default(), 
                 },
                 Span::default(),
             );
@@ -1066,6 +1065,7 @@ impl Frontend {
             expressions,
             named_expressions: crate::NamedExpressions::default(),
             body,
+            named_uses: crate::Arena::new(), 
         };
 
         'outer: for decl in declaration.overloads.iter_mut() {
@@ -1301,6 +1301,7 @@ impl Frontend {
                         ty,
                         binding: Some(binding),
                         offset: span,
+                        span: Span::UNDEFINED
                     });
 
                     span += ctx.module.types[ty].inner.size(ctx.module.to_ctx());

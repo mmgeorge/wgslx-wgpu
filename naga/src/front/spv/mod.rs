@@ -813,7 +813,6 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
                     name: None,
                     ty,
                     init: None,
-                    span: crate::Span::default()
                 },
                 crate::Span::default(),
             );
@@ -1414,7 +1413,6 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
                                 crate::TypeInner::Pointer { base, .. } => base,
                                 _ => lookup_ty.handle,
                             },
-                            span: crate::Span::default(),
                             init,
                         },
                         span,
@@ -1445,7 +1443,6 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
                             name: Some(name),
                             ty: self.lookup_type.lookup(result_type_id)?.handle,
                             init: None,
-                            span: Span::UNDEFINED
                         },
                         self.span_from(start),
                     );
@@ -4698,6 +4695,7 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
                 ty,
                 binding,
                 offset,
+                span: Span::UNDEFINED
             });
         }
 
