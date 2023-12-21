@@ -1081,6 +1081,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                 early_depth_test: entry.early_depth_test,
                 workgroup_size,
                 function,
+                span, 
             });
             Ok(LoweredGlobalDecl::EntryPoint)
         } else {

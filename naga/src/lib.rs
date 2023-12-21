@@ -2018,6 +2018,8 @@ pub struct EntryPoint {
     pub workgroup_size: [u32; 3],
     /// The entrance function.
     pub function: Function,
+    /// Span associated with the function. 
+    pub span: Span
 }
 
 /// Return types predeclared for the frexp, modf, and atomicCompareExchangeWeak built-in functions.

@@ -567,6 +567,7 @@ impl<I: Iterator<Item = u32>> super::Frontend<I> {
                 early_depth_test: ep.early_depth_test,
                 workgroup_size: ep.workgroup_size,
                 function,
+                span: Span::UNDEFINED
             });
         }
 

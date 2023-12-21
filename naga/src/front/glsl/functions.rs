@@ -1362,6 +1362,7 @@ impl Frontend {
                 result: ty.map(|ty| FunctionResult { ty, binding: None, ty_span: Span::UNDEFINED }),
                 ..Default::default()
             },
+            span: Span::UNDEFINED
         });
 
         Ok(())
