@@ -51,7 +51,7 @@ impl File {
         &self.path
     }
 
-    pub fn id(&self) -> FileId {
+    pub const fn id(&self) -> FileId {
         self.id
     }
 
@@ -67,7 +67,7 @@ impl File {
 
     /// Return the starting byte index of the line with the specified line index.
     /// Convenience method that already generates errors if necessary.
-    pub fn line_start(&self, line_index: usize) -> Result<usize, files::Error> {
+    pub fn line_start(&self, line_index: usize) -> Result<usize, Error> {
         use std::cmp::Ordering;
 
         match line_index.cmp(&self.line_starts.len()) {
@@ -84,14 +84,14 @@ impl File {
         }
     }
 
-    pub fn line_index(&self, (): (), byte_index: usize) -> Result<usize, files::Error> {
+    pub fn line_index(&self, (): (), byte_index: usize) -> Result<usize, Error> {
         Ok(self
             .line_starts
             .binary_search(&byte_index)
             .unwrap_or_else(|next_line| next_line - 1))
     }
 
-    pub fn line_range(&self, (): (), line_index: usize) -> Result<Range<usize>, files::Error> {
+    pub fn line_range(&self, (): (), line_index: usize) -> Result<Range<usize>, Error> {
         let line_start = self.line_start(line_index)?;
         let next_line_start = self.line_start(line_index + 1)?;
 

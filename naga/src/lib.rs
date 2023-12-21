@@ -332,7 +332,7 @@ pub struct NamedExpression {
 }
 
 impl NamedExpression {
-    pub fn from_name(name: String) -> Self {
+    pub const fn from_name(name: String) -> Self {
         Self {
             name,
             span: Span::UNDEFINED,

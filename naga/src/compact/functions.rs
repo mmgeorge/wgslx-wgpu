@@ -97,7 +97,7 @@ impl FunctionMap {
             let new_handle = self.expressions.try_adjust(named_use.expression)
                 .expect("InternalError: Unable to adjust handle for named_use");
 
-            (*named_use).expression = new_handle; 
+            named_use.expression = new_handle; 
         }
 
         // Adjust named expressions.

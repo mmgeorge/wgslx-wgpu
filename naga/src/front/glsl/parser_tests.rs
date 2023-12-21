@@ -23,7 +23,7 @@ fn version() {
             .unwrap(),
         vec![Error {
             kind: ErrorKind::InvalidVersion(99000),
-            meta: Span::new(9, 14)
+            meta: Span::new(9, 14, None)
         }],
     );
 
@@ -37,7 +37,7 @@ fn version() {
             .unwrap(),
         vec![Error {
             kind: ErrorKind::InvalidVersion(449),
-            meta: Span::new(9, 12)
+            meta: Span::new(9, 12, None)
         }]
     );
 
@@ -51,7 +51,7 @@ fn version() {
             .unwrap(),
         vec![Error {
             kind: ErrorKind::InvalidProfile("smart".into()),
-            meta: Span::new(13, 18),
+            meta: Span::new(13, 18, None),
         }]
     );
 
@@ -66,14 +66,14 @@ fn version() {
         vec![
             Error {
                 kind: ErrorKind::PreprocessorError(PreprocessorError::UnexpectedHash,),
-                meta: Span::new(27, 28),
+                meta: Span::new(27, 28, None),
             },
             Error {
                 kind: ErrorKind::InvalidToken(
                     TokenValue::Identifier("version".into()),
                     vec![ExpectedToken::Eof]
                 ),
-                meta: Span::new(28, 35)
+                meta: Span::new(28, 35, None)
             }
         ]
     );
@@ -449,7 +449,7 @@ fn functions() {
             .unwrap(),
         vec![Error {
             kind: ErrorKind::SemanticError("Function already defined".into()),
-            meta: Span::new(134, 152),
+            meta: Span::new(134, 152, None),
         }]
     );
 
@@ -628,7 +628,7 @@ fn implicit_conversions() {
             .unwrap(),
         vec![Error {
             kind: ErrorKind::SemanticError("Unknown function \'test\'".into()),
-            meta: Span::new(156, 165),
+            meta: Span::new(156, 165, None),
         }]
     );
 
@@ -650,7 +650,7 @@ fn implicit_conversions() {
             .unwrap(),
         vec![Error {
             kind: ErrorKind::SemanticError("Ambiguous best function for \'test\'".into()),
-            meta: Span::new(158, 165),
+            meta: Span::new(158, 165, None),
         }]
     );
 }

@@ -233,7 +233,7 @@ mod tests {
                         location
                     }]
                 }),
-                meta: Span::new(1, 8)
+                meta: Span::new(1, 8, None)
             }
         );
         assert_eq!(
@@ -241,9 +241,9 @@ mod tests {
             LexerResult {
                 kind: LexerResultKind::Token(Token {
                     value: TokenValue::Void,
-                    meta: Span::new(13, 17)
+                    meta: Span::new(13, 17, None)
                 }),
-                meta: Span::new(13, 17)
+                meta: Span::new(13, 17, None)
             }
         );
         assert_eq!(
@@ -251,9 +251,9 @@ mod tests {
             LexerResult {
                 kind: LexerResultKind::Token(Token {
                     value: TokenValue::Identifier("main".into()),
-                    meta: Span::new(18, 22)
+                    meta: Span::new(18, 22, None)
                 }),
-                meta: Span::new(18, 22)
+                meta: Span::new(18, 22, None)
             }
         );
         assert_eq!(
@@ -261,9 +261,9 @@ mod tests {
             LexerResult {
                 kind: LexerResultKind::Token(Token {
                     value: TokenValue::LeftParen,
-                    meta: Span::new(23, 24)
+                    meta: Span::new(23, 24, None)
                 }),
-                meta: Span::new(23, 24)
+                meta: Span::new(23, 24, None)
             }
         );
         assert_eq!(
@@ -271,9 +271,9 @@ mod tests {
             LexerResult {
                 kind: LexerResultKind::Token(Token {
                     value: TokenValue::RightParen,
-                    meta: Span::new(24, 25)
+                    meta: Span::new(24, 25, None)
                 }),
-                meta: Span::new(24, 25)
+                meta: Span::new(24, 25, None)
             }
         );
         assert_eq!(
@@ -281,9 +281,9 @@ mod tests {
             LexerResult {
                 kind: LexerResultKind::Token(Token {
                     value: TokenValue::LeftBrace,
-                    meta: Span::new(26, 27)
+                    meta: Span::new(26, 27, None)
                 }),
-                meta: Span::new(26, 27)
+                meta: Span::new(26, 27, None)
             }
         );
         assert_eq!(
@@ -291,9 +291,9 @@ mod tests {
             LexerResult {
                 kind: LexerResultKind::Token(Token {
                     value: TokenValue::RightBrace,
-                    meta: Span::new(27, 28)
+                    meta: Span::new(27, 28, None)
                 }),
-                meta: Span::new(27, 28)
+                meta: Span::new(27, 28, None)
             }
         );
         assert_eq!(lex.next(), None);

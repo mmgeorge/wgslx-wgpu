@@ -140,7 +140,6 @@ struct BindingParser<'a> {
     interpolation: ParsedAttribute<crate::Interpolation>,
     sampling: ParsedAttribute<crate::Sampling>,
     invariant: ParsedAttribute<bool>,
-    imports: ParsedAttribute<String>,
 }
 
 impl<'a> BindingParser<'a> {

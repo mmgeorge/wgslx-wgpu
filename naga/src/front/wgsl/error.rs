@@ -1,7 +1,8 @@
 use crate::front::wgsl::parse::lexer::Token;
 use crate::front::wgsl::Scalar;
 use crate::proc::{Alignment, ConstantEvaluatorError, ResolveError};
-use crate::span::{FileId, SpanProvider};
+use crate::span::{FileId};
+
 use crate::{SourceLocation, Span};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::files::Files;
@@ -80,11 +81,17 @@ impl ParseError {
     }
 
     /// Emits a summary of the error to a string.
-    pub fn emit_to_string(&self, source: &str) -> String {
+    pub fn emit_to_string(&self, _source: &str) -> String {
         todo!()
     }
 
-    /// Emits a summary of the error to a string.
+  /// Emits a summary of the error to a string.
+    pub fn emit_to_string_with_path<P>(&self, _source: &str, _path: P) -> String
+    where
+        P: AsRef<std::path::Path>,
+    {
+        todo!()
+    }
     // pub fn emit_to_string_with_path<P>(&self, source: &str, path: P) -> String
     // where
     //     P: AsRef<std::path::Path>,

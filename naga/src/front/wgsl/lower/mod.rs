@@ -995,7 +995,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
             .enumerate()
             .map(|(i, arg)| {
                 let ty = self.resolve_ast_type(arg.ty, ctx)?;
-                let mut span = arg.name.span.clone();
+                let mut span = arg.name.span; 
                 span.subsume(arg.ty_span);
                 
                 let expr = expressions
@@ -1003,8 +1003,6 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
 
                 local_table.insert(arg.handle, Typed::Plain(expr));
                 named_expressions.insert(expr, (arg.name.name.to_string(), arg.name.span, ty));
-
-                eprintln!("Got func arg span {:?} {:?} {:?}", arg.name.name, arg.name.span, arg.ty_span); 
 
                 Ok(crate::FunctionArgument {
                     name: Some(arg.name.name.to_string()),
@@ -1055,8 +1053,6 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
         let mut body = self.block(&f.body, false, &mut stmt_ctx)?;
       ensure_block_returns(&mut body);
 
-      eprintln!("Got fn {:#?}", function); 
-
         function.body = body;
         function.named_expressions = named_expressions
             .into_iter()
@@ -1088,7 +1084,6 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
             });
             Ok(LoweredGlobalDecl::EntryPoint)
         } else {
-          eprintln!("Added func {:#?}", function); 
             let handle = ctx.module.functions.append(function, span);
             Ok(LoweredGlobalDecl::Function(handle))
         }
@@ -1161,7 +1156,6 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     ctx.local_table.insert(l.handle, Typed::Plain(value));
                     ctx.named_expressions
                         .insert(value, (l.name.name.to_string(), l.name.span, init_ty));
-                    eprintln!("Add named expr {} contextfn: {:#?}", l.name.name, ctx.function);
 
                     return Ok(());
                 }
@@ -1544,12 +1538,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                 let rctx = ctx.runtime_expression_ctx(span)?;
                 match rctx.local_table[&local] {
                     Typed::Plain(val) => {
-                        let expr = &rctx.function.expressions[val];
-                        let expr2 = &rctx.function.named_expressions.get(&val);
-
                         rctx.function.named_uses.append(NamedExpressionUse { expression: val }, span);
-                        
-                        eprintln!("Resolve plain {:?} {:#?} {:#?} {:#?}", val, expr, expr2, rctx.function); 
                     }
                     Typed::Reference(_) => {}
                 }; 

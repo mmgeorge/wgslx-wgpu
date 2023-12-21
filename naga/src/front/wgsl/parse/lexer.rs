@@ -165,7 +165,6 @@ fn consume_token(input: &str, generic: bool) -> (Token<'_>, &str) {
             (Token::Word(word), rest)
         }
         _ if is_string_start(cur) => {
-            eprintln!("Got string start"); 
             let (string, rest) = consume_any(input, is_string_part);
             (Token::String(string), rest)
         }

@@ -40,7 +40,18 @@ impl Frontend {
         }
     }
 
-    pub fn parse(&mut self, source: &str) -> Result<crate::Module, ParseError> {
+    fn inner<'a>(&mut self, source: &'a str) -> Result<crate::Module, Error<'a>> {
+        let mut tu = ast::TranslationUnit::default();
+
+        self.parser.parse(&mut tu, source, 0)?; 
+        
+        let index = index::Index::generate(&tu)?;
+        let module = Lowerer::new(&index).lower(&tu)?;
+
+        Ok(module)
+    }
+
+    pub fn parse(&mut self, _source: &str) -> Result<crate::Module, ParseError> {
         todo!()
     }
 
@@ -68,7 +79,7 @@ pub fn parse_module<'a>(provider: &'a impl SourceProvider<'a>, id: FileId) -> Re
 }
 
 
-pub fn parse_str<'a>(source: &'a str) -> Result<crate::Module, ParseError> {
+pub fn parse_str(_source: &str) -> Result<crate::Module, ParseError> {
     todo!()
 }
 
@@ -112,8 +123,6 @@ fn parse_translation_unit<'a>(
             handled.insert(path); 
         }
     }
-
-    eprintln!("TU: {:#?}", translation_unit); 
 
     Ok(translation_unit)
 }

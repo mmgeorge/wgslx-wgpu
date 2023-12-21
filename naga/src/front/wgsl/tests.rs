@@ -611,7 +611,7 @@ fn parse_repeated_attributes() {
         let name_length = attribute.rfind('(').unwrap_or(attribute.len()) as u32;
         let span_start = shader.rfind(attribute).unwrap() as u32;
         let span_end = span_start + name_length;
-        let expected_span = Span::new(span_start, span_end);
+        let expected_span = Span::new(span_start, span_end, None);
 
         let result = Frontend::new().inner(&shader);
         assert!(matches!(
@@ -632,6 +632,6 @@ fn parse_missing_workgroup_size() {
     let result = Frontend::new().inner(shader);
     assert!(matches!(
         result.unwrap_err(),
-        Error::MissingWorkgroupSize(span) if span == Span::new(1, 8)
+        Error::MissingWorkgroupSize(span) if span == Span::new(1, 8, None)
     ));
 }

@@ -40,7 +40,7 @@ use function::*;
 use crate::{
     arena::{Arena, Handle, UniqueArena},
     proc::{Alignment, Layouter},
-    FastHashMap, FastHashSet, FastIndexMap, Span,
+    FastHashMap, FastHashSet, FastIndexMap,
 };
 
 use num_traits::cast::FromPrimitive;
@@ -4695,7 +4695,7 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
                 ty,
                 binding,
                 offset,
-                span: Span::UNDEFINED
+                span: crate::Span::UNDEFINED
             });
         }
 
@@ -5198,7 +5198,7 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
                     name: dec.name,
                     ty: unsigned_ty,
                     binding: Some(binding),
-                    ty_span: Span::UNDEFINED
+                    ty_span: crate::Span::UNDEFINED
                 });
                 (inner, var)
             }
@@ -5254,7 +5254,7 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
                     ty,
                     init,
                 };
-                let inner = Variable::Output(crate::FunctionResult { ty, binding, ty_span: Span::UNDEFINED });
+                let inner = Variable::Output(crate::FunctionResult { ty, binding, ty_span: crate::Span::UNDEFINED });
                 (inner, var)
             }
         };
