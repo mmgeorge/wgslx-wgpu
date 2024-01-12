@@ -3,6 +3,7 @@ use std::{error::Error, fmt, ops::Range};
 
 #[cfg(feature = "arbitrary")]
 use arbitrary::Arbitrary;
+use codespan_reporting::files;
 #[cfg(feature = "deserialize")]
 use serde::Deserialize;
 #[cfg(feature = "serialize")]
@@ -186,6 +187,21 @@ where
     }
 }
 
+impl<E: Error> WithSpan<E> {
+  /// Emits a summary of the error to standard error stream.
+  pub fn emit_to_stderr_with_provider<'a>(&self, provider: &'a impl files::Files<'a, FileId = FileId>) {
+    use codespan_reporting::{term};
+    use term::termcolor::{ColorChoice, StandardStream};
+
+    let config = codespan_reporting::term::Config::default();
+    let writer = StandardStream::stderr(ColorChoice::Auto);
+
+    term::emit(&mut writer.lock(), &config, provider, &self.diagnostic())
+      .expect("cannot write error");
+  }
+}
+
+
 impl<E> WithSpan<E> {
     /// Create a new [`WithSpan`] from an [`Error`], containing no spans.
     pub const fn new(inner: E) -> Self {
@@ -264,17 +280,17 @@ impl<E> WithSpan<E> {
         Some(self.spans[0].0.location(source))
     }
 
-    fn diagnostic(&self) -> codespan_reporting::diagnostic::Diagnostic<()>
+    fn diagnostic(&self) -> codespan_reporting::diagnostic::Diagnostic<FileId>
     where
         E: Error,
     {
         use codespan_reporting::diagnostic::{Diagnostic, Label};
-        let diagnostic = Diagnostic::error()
+        let diagnostic = Diagnostic::<FileId>::error()
             .with_message(self.inner.to_string())
             .with_labels(
                 self.spans()
                     .map(|&(span, ref desc)| {
-                        Label::primary((), span.to_range().unwrap()).with_message(desc.to_owned())
+                        Label::primary(span.file_id.unwrap(), span.to_range().unwrap()).with_message(desc.to_owned())
                     })
                     .collect(),
             )
@@ -290,51 +306,51 @@ impl<E> WithSpan<E> {
         diagnostic
     }
 
-    /// Emits a summary of the error to standard error stream.
-    pub fn emit_to_stderr(&self, source: &str)
-    where
-        E: Error,
-    {
-        self.emit_to_stderr_with_path(source, "wgsl")
-    }
+    // /// Emits a summary of the error to standard error stream.
+    // pub fn emit_to_stderr(&self, source: &str)
+    // where
+    //     E: Error,
+    // {
+    //     self.emit_to_stderr_with_path(source, "wgsl")
+    // }
 
-    /// Emits a summary of the error to standard error stream.
-    pub fn emit_to_stderr_with_path(&self, source: &str, path: &str)
-    where
-        E: Error,
-    {
-        use codespan_reporting::{files, term};
-        use term::termcolor::{ColorChoice, StandardStream};
+    // /// Emits a summary of the error to standard error stream.
+    // pub fn emit_to_stderr_with_path(&self, source: &str, path: &str)
+    // where
+    //     E: Error,
+    // {
+    //     use codespan_reporting::{files, term};
+    //     use term::termcolor::{ColorChoice, StandardStream};
 
-        let files = files::SimpleFile::new(path, source);
-        let config = term::Config::default();
-        let writer = StandardStream::stderr(ColorChoice::Auto);
-        term::emit(&mut writer.lock(), &config, &files, &self.diagnostic())
-            .expect("cannot write error");
-    }
+    //     let files = files::SimpleFile::new(path, source);
+    //     let config = term::Config::default();
+    //     let writer = StandardStream::stderr(ColorChoice::Auto);
+    //     term::emit(&mut writer.lock(), &config, &files, &self.diagnostic())
+    //         .expect("cannot write error");
+    // }
 
-    /// Emits a summary of the error to a string.
-    pub fn emit_to_string(&self, source: &str) -> String
-    where
-        E: Error,
-    {
-        self.emit_to_string_with_path(source, "wgsl")
-    }
+    // /// Emits a summary of the error to a string.
+    // pub fn emit_to_string(&self, source: &str) -> String
+    // where
+    //     E: Error,
+    // {
+    //     self.emit_to_string_with_path(source, "wgsl")
+    // }
 
-    /// Emits a summary of the error to a string.
-    pub fn emit_to_string_with_path(&self, source: &str, path: &str) -> String
-    where
-        E: Error,
-    {
-        use codespan_reporting::{files, term};
-        use term::termcolor::NoColor;
+    // /// Emits a summary of the error to a string.
+    // pub fn emit_to_string_with_path(&self, source: &str, path: &str) -> String
+    // where
+    //     E: Error,
+    // {
+    //     use codespan_reporting::{files, term};
+    //     use term::termcolor::NoColor;
 
-        let files = files::SimpleFile::new(path, source);
-        let config = codespan_reporting::term::Config::default();
-        let mut writer = NoColor::new(Vec::new());
-        term::emit(&mut writer, &config, &files, &self.diagnostic()).expect("cannot write error");
-        String::from_utf8(writer.into_inner()).unwrap()
-    }
+    //     let files = files::SimpleFile::new(path, source);
+    //     let config = codespan_reporting::term::Config::default();
+    //     let mut writer = NoColor::new(Vec::new());
+    //     term::emit(&mut writer, &config, &files, &self.diagnostic()).expect("cannot write error");
+    //     String::from_utf8(writer.into_inner()).unwrap()
+    // }
 }
 
 /// Convenience trait for [`Error`] to be able to apply spans to anything.
