@@ -8,7 +8,6 @@ use std::path::{PathBuf, Path};
 pub struct Import {
     pub path: String,
     pub span: Span, 
-    pub resolved_path: Option<PathBuf>, 
 }
 
 impl Import {
@@ -21,16 +20,7 @@ impl Import {
         Self {
             path,
             span,
-            resolved_path: None
         }
-    }
-
-    pub fn resolve(&mut self, base_path: &Path) -> PathBuf {
-        let resolved_path = base_path.join(&self.path);
-
-        self.resolved_path = Some(resolved_path.clone());
-
-        resolved_path
     }
 }
 
