@@ -60,14 +60,11 @@ pub struct TranslationUnit<'a> {
     ///
     /// @import "./path/to/source"
     pub imports: Vec<Import>,
-
-    pub path: Option<PathBuf>
 }
 
 impl TranslationUnit<'_> {
     pub fn reset(&mut self) {
         self.imports.clear();
-        self.path = None; 
     }
 }
 

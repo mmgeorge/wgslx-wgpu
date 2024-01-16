@@ -99,17 +99,12 @@ fn parse_translation_unit<'a>(
         translation_unit.reset();
 
         let file = provider.get(file_id).expect("File not found in source provider");
-        let path = file.path().to_owned(); 
             
         Frontend::new().parse_into(&mut translation_unit, file)
             .map_err(|x| x.as_parse_error(provider))?; 
             
-        let parent_path = path.parent()
-            .ok_or(Error::BadPath { span })
-            .map_err(|x| x.as_parse_error(provider))?; 
-
         for import in &mut translation_unit.imports {
-            let path = import.resolve(parent_path); 
+            let path = import.path.clone();
 
             if handled.contains(&path) {
                 continue; 
