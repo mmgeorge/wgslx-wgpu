@@ -40,16 +40,16 @@ impl Frontend {
         }
     }
 
-    fn inner<'a>(&mut self, source: &'a str) -> Result<crate::Module, Error<'a>> {
-        let mut tu = ast::TranslationUnit::default();
+    // fn inner<'a>(&mut self, source: &'a str) -> Result<crate::Module, Error<'a>> {
+    //     let mut tu = ast::TranslationUnit::default();
 
-        self.parser.parse(&mut tu, source, 0)?; 
+    //     self.parser.parse(&mut tu, source, 0)?; 
         
-        let index = index::Index::generate(&tu)?;
-        let module = Lowerer::new(&index).lower(&tu)?;
+    //     let index = index::Index::generate(&tu)?;
+    //     let module = Lowerer::new(&index).lower(&tu)?;
 
-        Ok(module)
-    }
+    //     Ok(module)
+    // }
 
     pub fn parse(&mut self, _source: &str) -> Result<crate::Module, ParseError> {
         todo!()

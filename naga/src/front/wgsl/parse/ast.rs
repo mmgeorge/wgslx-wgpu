@@ -2,7 +2,6 @@ use crate::front::wgsl::parse::number::Number;
 use crate::front::wgsl::Scalar;
 use crate::{Arena, FastIndexSet, Handle, Span};
 use std::hash::Hash;
-use std::path::{PathBuf, Path};
 
 #[derive(Debug)]
 pub struct Import {
