@@ -254,6 +254,7 @@ An override expression can be evaluated at pipeline creation time.
     clippy::needless_borrowed_reference,
     unused_qualifications,
     dead_code,
+    unused_qualifications,
     clippy::single_match
 )]
 #![warn(

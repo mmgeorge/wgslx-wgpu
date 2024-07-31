@@ -3047,8 +3047,8 @@ impl<W: Write> Writer<W> {
         //TODO: take care of loop/continuing?
         for statement in statements {
             if let crate::Statement::Emit(ref range) = *statement {
-                for handle in range.clone() {
-                    self.named_expressions.remove(&handle);
+                for _handle in range.clone() {
+                    // self.named_expressions.remove(&handle);
                 }
             }
         }
