@@ -252,13 +252,14 @@ An override expression can be evaluated at pipeline creation time.
     clippy::collapsible_if,
     clippy::derive_partial_eq_without_eq,
     clippy::needless_borrowed_reference,
+    unused_qualifications,
+    dead_code,
     clippy::single_match
 )]
 #![warn(
     trivial_casts,
     trivial_numeric_casts,
     unused_extern_crates,
-    unused_qualifications,
     clippy::pattern_type_mismatch,
     clippy::missing_const_for_fn,
     clippy::rest_pat_in_fully_bound_structs,
